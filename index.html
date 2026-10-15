@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reaction Coordinate Diagram Simulation</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #111;
+            font-size: 26px;
+            font-weight: 700;
+            text-align: center;
+        }
+        canvas {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: default;
+            touch-action: none;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            user-select: none;
+            text-align: center;
+        }
+        .btn:hover {
+            filter: brightness(0.92);
+        }
+        
+        /* Button specific styling */
+        #btn-ea { background-color: #90ee90; color: #000; }
+        #btn-ea.active { background-color: #00ff00; }
+
+        #btn-labels { background-color: #ee82ee; color: #000; }
+        #btn-labels.off { background-color: #dda0dd; }
+
+        #btn-deltah { background-color: #ffffe0; color: #000; }
+        #btn-deltah.active { background-color: #ffff00; }
+
+        #btn-endo { background-color: #d3d3d3; color: #000; }
+        #btn-endo.active { background-color: #87ceeb; }
+
+        #btn-exo { background-color: #d3d3d3; color: #000; }
+        #btn-exo.active { background-color: #f08080; }
+
+        #btn-store {
+            background-color: #d3d3d3;
+            color: #000;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        #btn-store::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to right, #9000FF, #FB00FF, #002AFF, #00BBFF, #037303, #03E203, #FFFF00, #F6B132, #FF0000, #6A0202);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: -1;
+        }
+        #btn-store:hover::before {
+            opacity: 1;
+        }
+        #btn-store:hover {
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .instructions {
+            margin-top: 16px;
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Reaction Coordinate Diagram</h2>
+    <canvas id="simCanvas" width="800" height="500"></canvas>
+    
+    <div class="controls">
+        <button id="btn-ea" class="btn">Show Ea</button>
+        <button id="btn-labels" class="btn">Hide R, TS, P</button>
+        <button id="btn-deltah" class="btn">Show ΔH</button>
+        
+        <button id="btn-endo" class="btn">Endothermic</button>
+        <button id="btn-store" class="btn">Store Curve</button>
+        <button id="btn-exo" class="btn">Exothermic</button>
+    </div>
+
+    <div class="instructions">
+        <b>Controls:</b> Drag circles to adjust energy levels • Hold <b>Shift</b>/<b>Ctrl</b> while clicking <i>Store Curve</i> to preserve Ea annotations • <b>Double-click</b> canvas to clear stored curves • Use <b>Arrow Keys</b> to zoom/pan axis.
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+// Increased canvas padding to comfortably accommodate larger labels
+const margin = { top: 35, right: 35, bottom: 60, left: 75 };
+const width = canvas.width - margin.left - margin.right;
+const height = canvas.height - margin.top - margin.bottom;
+
+// Coordinate system limits
+let xMin = -1, xMax = 11;
+let yMin = 4, yMax = 18;
+
+// Energy constants
+const ENDOTHERMIC_REACTANT_ENERGY = 10;
+const ENDOTHERMIC_PRODUCT_ENERGY = 12;
+const ENDOTHERMIC_PEAK_ENERGY = 13.55;
+
+const EXOTHERMIC_REACTANT_ENERGY = 10;
+const EXOTHERMIC_PRODUCT_ENERGY = 8;
+const EXOTHERMIC_PEAK_ENERGY = 11.4;
+
+// Initial state variables
+let reactantEnergy = 10;
+let productEnergy = 10;
+let peakY = 11.4;
+let peakX = 5;
+
+// Mode flags
+let endothermicMode = false;
+let exothermicMode = false;
+
+// Display flags
+let showEa = false;
+let showDeltaH = false;
+let labelsVisible = true;
+let shiftPressed = false;
+
+// Store saved curves
+let savedCurves = [];
+
+// Drag tracking
+let draggingPoint = null;
+
+// Spectrum color map for ΔH
+const colorList = ["#9000FF", "#FB00FF", "#002AFF", "#00BBFF", "#037303", "#03E203", "#FFFF00", "#F6B132", "#FF0000", "#6A0202"];
+
+// Color interpolation function for Transition State point
+function getTransitionColor(px) {
+    let t = (px - 1) / (9.9 - 0.1);
+    t = Math.max(0, Math.min(1, t));
+    let r, g, b;
+    if (t <= 0.5) {
+        let t2 = t / 0.5;
+        r = Math.round((0 + t2 * 0.5) * 255);
+        g = 0;
+        b = Math.round((1 - t2 * 0.5) * 255);
+    } else {
+        let t2 = (t - 0.5) / 0.5;
+        r = Math.round((0.5 + t2 * 0.5) * 255);
+        g = 0;
+        b = Math.round((0.5 - t2 * 0.5) * 255);
+    }
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Map ΔH to color spectrum
+function getDeltaHColor(deltaH) {
+    const minH = -5, maxH = 5;
+    let clamped = Math.max(minH, Math.min(maxH, deltaH));
+    let norm = (clamped - minH) / (maxH - minH);
+    
+    let idx = norm * (colorList.length - 1);
+    let i1 = Math.floor(idx);
+    let i2 = Math.min(colorList.length - 1, Math.ceil(idx));
+    let f = idx - i1;
+
+    let c1 = hexToRgb(colorList[i1]);
+    let c2 = hexToRgb(colorList[i2]);
+
+    let r = Math.round(c1.r + f * (c2.r - c1.r));
+    let g = Math.round(c1.g + f * (c2.g - c1.g));
+    let b = Math.round(c1.b + f * (c2.b - c1.b));
+
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function hexToRgb(hex) {
+    let num = parseInt(hex.replace('#', ''), 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+
+// Convert graph coords to canvas coords
+function toCanvasX(x) {
+    return margin.left + ((x - xMin) / (xMax - xMin)) * width;
+}
+function toCanvasY(y) {
+    return margin.top + (1 - (y - yMin) / (yMax - yMin)) * height;
+}
+
+// Convert canvas coords to graph coords
+function toGraphX(cx) {
+    return xMin + ((cx - margin.left) / width) * (xMax - xMin);
+}
+function toGraphY(cy) {
+    return yMin + (1 - (cy - margin.top) / height) * (yMax - yMin);
+}
+
+// Cubic Hermite Interpolation
+function getCubicY(x, x0, y0, x1, y1) {
+    let t = (x - x0) / (x1 - x0);
+    return y0 + (y1 - y0) * (3 * t * t - 2 * t * t * t);
+}
+
+// Generate energy curve coordinates
+function computeEnergyCurve(pX, rE, pE, pkY) {
+    let points = [];
+    let numPoints = 300;
+    for (let i = 0; i <= numPoints; i++) {
+        let xVal = (i / numPoints) * 10;
+        let yVal;
+        if (xVal <= pX) {
+            yVal = getCubicY(xVal, 0, rE, pX, pkY);
+        } else {
+            yVal = getCubicY(xVal, pX, pkY, 10, pE);
+        }
+        points.push({ x: xVal, y: yVal });
+    }
+    return points;
+}
+
+// Recalculate TS peak position based on Hammond's Postulate
+function updateHammondPosition() {
+    if (endothermicMode) {
+        reactantEnergy = ENDOTHERMIC_REACTANT_ENERGY;
+    } else if (exothermicMode) {
+        reactantEnergy = EXOTHERMIC_REACTANT_ENERGY;
+    }
+
+    let deltaH = productEnergy - reactantEnergy;
+    let maxDelta = 10;
+    let deltaClamped = Math.max(-maxDelta, Math.min(maxDelta, deltaH));
+    let normDelta = deltaClamped / maxDelta;
+
+    peakX = 5 + normDelta * 4;
+    peakX = Math.max(1, Math.min(9, peakX));
+}
+
+// Main rendering function
+function draw() {
+    updateHammondPosition();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Draw Grid Lines
+    ctx.strokeStyle = "rgba(128, 128, 128, 0.3)";
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([4, 4]);
+
+    let startX = Math.floor(xMin);
+    let endX = Math.ceil(xMax);
+    for (let x = startX; x <= endX; x++) {
+        let cx = toCanvasX(x);
+        if (cx >= margin.left && cx <= margin.left + width) {
+            ctx.beginPath();
+            ctx.moveTo(cx, margin.top);
+            ctx.lineTo(cx, margin.top + height);
+            ctx.stroke();
+        }
+    }
+
+    let startY = Math.floor(yMin);
+    let endY = Math.ceil(yMax);
+    for (let y = startY; y <= endY; y++) {
+        let cy = toCanvasY(y);
+        if (cy >= margin.top && cy <= margin.top + height) {
+            ctx.beginPath();
+            ctx.moveTo(margin.left, cy);
+            ctx.lineTo(margin.left + width, cy);
+            ctx.stroke();
+        }
+    }
+
+    // 2. Draw Axes border & Axis Labels (Bumped to 19px)
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(margin.left, margin.top, width, height);
+
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 19px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Reaction Coordinate", margin.left + width / 2, canvas.height - 18);
+
+    ctx.save();
+    ctx.translate(26, margin.top + height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("Energy", 0, 0);
+    ctx.restore();
+
+    // 3. Draw Saved Curves
+    savedCurves.forEach(item => {
+        let curvePts = computeEnergyCurve(item.peakX, item.reactantEnergy, item.productEnergy, item.peakY);
+        ctx.beginPath();
+        ctx.strokeStyle = item.color;
+        ctx.lineWidth = 2.5;
+        curvePts.forEach((pt, idx) => {
+            let cx = toCanvasX(pt.x);
+            let cy = toCanvasY(pt.y);
+            if (idx === 0) ctx.moveTo(cx, cy);
+            else ctx.lineTo(cx, cy);
+        });
+        ctx.stroke();
+
+        if (item.hasEa) {
+            let xArrow = item.peakX - 0.5;
+            drawDoubleArrow(toCanvasX(xArrow), toCanvasY(item.reactantEnergy), toCanvasX(xArrow), toCanvasY(item.peakY), item.color);
+            ctx.fillStyle = item.color;
+            ctx.font = "bold 18px sans-serif";
+            ctx.textAlign = "right";
+            ctx.fillText("Ea", toCanvasX(xArrow) - 10, toCanvasY((item.reactantEnergy + item.peakY) / 2) + 6);
+        }
+    });
+
+    // 4. Draw Current Main Curve
+    let currentCurve = computeEnergyCurve(peakX, reactantEnergy, productEnergy, peakY);
+    ctx.beginPath();
+    ctx.strokeStyle = "grey";
+    ctx.lineWidth = 2.5;
+    currentCurve.forEach((pt, idx) => {
+        let cx = toCanvasX(pt.x);
+        let cy = toCanvasY(pt.y);
+        if (idx === 0) ctx.moveTo(cx, cy);
+        else ctx.lineTo(cx, cy);
+    });
+    ctx.stroke();
+
+    // 5. Draw Reference Lines, Handles & Labels (Bumped to 18px)
+    if (labelsVisible) {
+        ctx.strokeStyle = "grey";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+
+        // Reactant Line
+        ctx.beginPath();
+        ctx.moveTo(margin.left, toCanvasY(reactantEnergy));
+        ctx.lineTo(margin.left + width, toCanvasY(reactantEnergy));
+        ctx.stroke();
+
+        // Product Line
+        ctx.beginPath();
+        ctx.moveTo(margin.left, toCanvasY(productEnergy));
+        ctx.lineTo(margin.left + width, toCanvasY(productEnergy));
+        ctx.stroke();
+
+        // TS Line
+        ctx.beginPath();
+        ctx.moveTo(margin.left, toCanvasY(peakY));
+        ctx.lineTo(margin.left + width, toCanvasY(peakY));
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        // Reactant Dot & Label
+        drawPoint(toCanvasX(0), toCanvasY(reactantEnergy), "blue");
+        ctx.fillStyle = "blue";
+        ctx.font = "bold 18px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("REACTANT", toCanvasX(0), toCanvasY(reactantEnergy) - 16);
+
+        // Product Dot & Label
+        drawPoint(toCanvasX(10), toCanvasY(productEnergy), "red");
+        ctx.fillStyle = "red";
+        ctx.font = "bold 18px sans-serif";
+        ctx.fillText("PRODUCT", toCanvasX(10), toCanvasY(productEnergy) + 26);
+
+        // TS Dot & Label
+        let tsColor = getTransitionColor(peakX);
+        drawPoint(toCanvasX(peakX), toCanvasY(peakY), tsColor);
+        ctx.fillStyle = tsColor;
+        ctx.font = "bold 18px sans-serif";
+        ctx.fillText("TRANSITION STATE", toCanvasX(peakX), toCanvasY(peakY) - 16);
+    }
+
+    // 6. Draw Ea Arrow & Label (Bumped to 18px)
+    if (showEa) {
+        let xArrow = peakX - 0.5;
+        let yStart = reactantEnergy;
+        let yEnd = peakY;
+        drawDoubleArrow(toCanvasX(xArrow), toCanvasY(yStart), toCanvasX(xArrow), toCanvasY(yEnd), "green");
+        ctx.fillStyle = "green";
+        ctx.font = "bold 18px sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText("Ea", toCanvasX(xArrow) - 10, toCanvasY((yStart + yEnd) / 2) + 6);
+    }
+
+    // 7. Draw ΔH Arrow & Label (Bumped to 18px)
+    if (showDeltaH) {
+        let xDelta = peakX + 0.5;
+        let yStart = reactantEnergy;
+        let yEnd = productEnergy;
+        drawDoubleArrow(toCanvasX(xDelta), toCanvasY(yStart), toCanvasX(xDelta), toCanvasY(yEnd), "orange");
+        ctx.fillStyle = "orange";
+        ctx.font = "bold 18px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("ΔH", toCanvasX(xDelta) + 10, toCanvasY((yStart + yEnd) / 2) + 6);
+    }
+}
+
+function drawPoint(cx, cy, color) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.stroke();
+}
+
+function drawDoubleArrow(x1, y1, x2, y2, color) {
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.5;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    let headLen = 10;
+    // Arrow top
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen / 2, y2 + (y1 > y2 ? headLen : -headLen));
+    ctx.lineTo(x2 + headLen / 2, y2 + (y1 > y2 ? headLen : -headLen));
+    ctx.closePath();
+    ctx.fill();
+
+    // Arrow bottom
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - headLen / 2, y1 + (y2 > y1 ? headLen : -headLen));
+    ctx.lineTo(x1 + headLen / 2, y1 + (y2 > y1 ? headLen : -headLen));
+    ctx.closePath();
+    ctx.fill();
+}
+
+// Interaction Handlers
+function getNearestHandle(gx, gy) {
+    const thresh = 0.6;
+    let distR = Math.hypot(gx - 0, gy - reactantEnergy);
+    let distP = Math.hypot(gx - 10, gy - productEnergy);
+    let distTS = Math.hypot(gx - peakX, gy - peakY);
+
+    if (distR < thresh && distR <= distP && distR <= distTS) return 'reactant';
+    if (distP < thresh && distP <= distR && distP <= distTS) return 'product';
+    if (distTS < thresh) return 'peak';
+    return null;
+}
+
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+
+    let gx = toGraphX(cx);
+    let gy = toGraphY(cy);
+
+    draggingPoint = getNearestHandle(gx, gy);
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+
+    let gx = toGraphX(cx);
+    let gy = toGraphY(cy);
+
+    if (!draggingPoint) {
+        canvas.style.cursor = getNearestHandle(gx, gy) ? 'pointer' : 'default';
+        return;
+    }
+
+    if (endothermicMode) {
+        if (draggingPoint === 'product') {
+            productEnergy = Math.max(gy, reactantEnergy);
+            peakY = ENDOTHERMIC_PEAK_ENERGY + (productEnergy - ENDOTHERMIC_PRODUCT_ENERGY) * 1.1;
+        }
+    } else if (exothermicMode) {
+        if (draggingPoint === 'product') {
+            productEnergy = Math.min(gy, reactantEnergy);
+            let deltaE = reactantEnergy - productEnergy;
+            let k = 0.15;
+            peakY = reactantEnergy + (EXOTHERMIC_PEAK_ENERGY - EXOTHERMIC_REACTANT_ENERGY) * Math.exp(-k * deltaE);
+        }
+    } else {
+        if (draggingPoint === 'reactant') {
+            reactantEnergy = gy;
+            if (reactantEnergy > peakY - 0.1) reactantEnergy = peakY - 0.1;
+        } else if (draggingPoint === 'product') {
+            productEnergy = gy;
+            if (productEnergy > peakY - 0.1) productEnergy = peakY - 0.1;
+        } else if (draggingPoint === 'peak') {
+            peakY = gy;
+            let minPeak = Math.max(reactantEnergy, productEnergy) + 0.1;
+            if (peakY < minPeak) peakY = minPeak;
+        }
+    }
+    draw();
+});
+
+window.addEventListener('mouseup', () => { draggingPoint = null; });
+
+// Key listeners for Shift detection & Zoom/Pan
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift' || e.key === 'Control') shiftPressed = true;
+
+    let yRange = yMax - yMin;
+    let zoomFactor = 0.8;
+    let panFraction = 0.1;
+
+    if (e.key === 'ArrowRight') { // Zoom In
+        yMin += yRange * (1 - zoomFactor) / 2;
+        yMax -= yRange * (1 - zoomFactor) / 2;
+        draw();
+    } else if (e.key === 'ArrowLeft') { // Zoom Out
+        yMin -= yRange * (1 - zoomFactor) / 2;
+        yMax += yRange * (1 - zoomFactor) / 2;
+        draw();
+    } else if (e.key === 'ArrowDown') { // Translate Up
+        let shift = yRange * panFraction;
+        yMin += shift; yMax += shift;
+        draw();
+    } else if (e.key === 'ArrowUp') { // Translate Down
+        let shift = yRange * panFraction;
+        yMin -= shift; yMax -= shift;
+        draw();
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift' || e.key === 'Control') shiftPressed = false;
+});
+
+// Clear stored curves on double click
+canvas.addEventListener('dblclick', () => {
+    savedCurves = [];
+    draw();
+});
+
+// Button Controls
+const btnEa = document.getElementById('btn-ea');
+const btnLabels = document.getElementById('btn-labels');
+const btnDeltaH = document.getElementById('btn-deltah');
+const btnEndo = document.getElementById('btn-endo');
+const btnExo = document.getElementById('btn-exo');
+const btnStore = document.getElementById('btn-store');
+
+btnEa.addEventListener('click', () => {
+    showEa = !showEa;
+    btnEa.textContent = showEa ? "Hide Ea" : "Show Ea";
+    btnEa.classList.toggle('active', showEa);
+    draw();
+});
+
+btnLabels.addEventListener('click', () => {
+    labelsVisible = !labelsVisible;
+    btnLabels.textContent = labelsVisible ? "Hide R, TS, P" : "Show R, TS, P";
+    btnLabels.classList.toggle('off', !labelsVisible);
+    draw();
+});
+
+btnDeltaH.addEventListener('click', () => {
+    showDeltaH = !showDeltaH;
+    btnDeltaH.textContent = showDeltaH ? "Hide ΔH" : "Show ΔH";
+    btnDeltaH.classList.toggle('active', showDeltaH);
+    draw();
+});
+
+btnEndo.addEventListener('click', () => {
+    endothermicMode = !endothermicMode;
+    if (endothermicMode) {
+        exothermicMode = false;
+        reactantEnergy = ENDOTHERMIC_REACTANT_ENERGY;
+        productEnergy = ENDOTHERMIC_PRODUCT_ENERGY;
+        peakY = ENDOTHERMIC_PEAK_ENERGY;
+    } else {
+        reactantEnergy = 10;
+        productEnergy = 10;
+        peakY = 11.4;
+    }
+    btnEndo.classList.toggle('active', endothermicMode);
+    btnExo.classList.remove('active');
+    draw();
+});
+
+btnExo.addEventListener('click', () => {
+    exothermicMode = !exothermicMode;
+    if (exothermicMode) {
+        endothermicMode = false;
+        reactantEnergy = EXOTHERMIC_REACTANT_ENERGY;
+        productEnergy = EXOTHERMIC_PRODUCT_ENERGY;
+        peakY = EXOTHERMIC_PEAK_ENERGY;
+    } else {
+        reactantEnergy = 10;
+        productEnergy = 10;
+        peakY = 11.4;
+    }
+    btnExo.classList.toggle('active', exothermicMode);
+    btnEndo.classList.remove('active');
+    draw();
+});
+
+btnStore.addEventListener('click', () => {
+    let deltaH = productEnergy - reactantEnergy;
+    let curveColor = getDeltaHColor(deltaH);
+
+    savedCurves.push({
+        reactantEnergy: reactantEnergy,
+        productEnergy: productEnergy,
+        peakY: peakY,
+        peakX: peakX,
+        color: curveColor,
+        hasEa: shiftPressed
+    });
+    draw();
+});
+
+// Initial Render
+draw();
+</script>
+
+</body>
+</html>
