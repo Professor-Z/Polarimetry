@@ -1,673 +1,1963 @@
+<!--
+  Copyright 2026 Zerubba Levi
+  This simulation is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
+  
+  License Restrictions Summary:
+  - Attribution: You must give appropriate credit and provide a link to the license.
+  - NonCommercial: You may not use the material for commercial purposes.
+  - ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+  
+  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reaction Coordinate Diagram Simulation</title>
+    <title>Interactive 3D Polarimeter Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        body {
-            background-color: #f8f9fa;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            background: #ffffff;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            max-width: 900px;
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #ffffff; display: flex; flex-direction: column; height: 100vh; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
             width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background: transparent;
+            margin-top: 6px;
+            margin-bottom: 0px;
+            position: relative;
+            z-index: 10;
         }
-        h2 {
-            margin-top: 0;
-            margin-bottom: 16px;
-            color: #111;
-            font-size: 26px;
-            font-weight: 700;
-            text-align: center;
-        }
-        canvas {
-            background-color: #ffffff;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            cursor: default;
-            touch-action: none;
-        }
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            width: 100%;
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 10px 16px;
-            font-size: 14px;
-            font-weight: bold;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            border-radius: 6px;
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px; width: 18px;
+            border-radius: 50%;
             cursor: pointer;
-            transition: all 0.2s ease;
-            outline: none;
-            user-select: none;
-            text-align: center;
+            margin-top: -7px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            border: 2px solid #ffffff;
+            transition: background 0.1s;
         }
-        .btn:hover {
-            filter: brightness(0.92);
+        input[type=range]::-moz-range-thumb {
+            height: 18px; width: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            border: 2px solid #ffffff;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 5px;
+            cursor: pointer;
+            background: #E5E7EB;
+            border-radius: 2px;
+        }
+        input[type=range]::-moz-range-track {
+            width: 100%; height: 5px;
+            cursor: pointer;
+            background: #E5E7EB;
+            border-radius: 2px;
         }
         
-        /* Button specific styling */
-        #btn-ea { background-color: #90ee90; color: #000; }
-        #btn-ea.active { background-color: #00ff00; }
+        #spec-slider { --thumb-offset: 0px; }
+        #spec-slider::-webkit-slider-thumb { background: #16A34A; transform: translateX(var(--thumb-offset)); }
+        #spec-slider::-moz-range-thumb { background: #16A34A; transform: translateX(var(--thumb-offset)); }
 
-        #btn-labels { background-color: #ee82ee; color: #000; }
-        #btn-labels.off { background-color: #dda0dd; }
+        #conc-slider::-webkit-slider-thumb, #tab2-conc-slider::-webkit-slider-thumb, #tab3-conc-slider::-webkit-slider-thumb { background: #2563EB; }
+        #conc-slider::-moz-range-thumb, #tab2-conc-slider::-moz-range-thumb, #tab3-conc-slider::-moz-range-thumb { background: #2563EB; }
+        
+        #mixture-slider::-webkit-slider-thumb { background: #9333EA; }
+        #mixture-slider::-moz-range-thumb { background: #9333EA; }
 
-        #btn-deltah { background-color: #ffffe0; color: #000; }
-        #btn-deltah.active { background-color: #ffff00; }
-
-        #btn-endo { background-color: #d3d3d3; color: #000; }
-        #btn-endo.active { background-color: #87ceeb; }
-
-        #btn-exo { background-color: #d3d3d3; color: #000; }
-        #btn-exo.active { background-color: #f08080; }
-
-        #btn-store {
-            background-color: #d3d3d3;
-            color: #000;
-            position: relative;
-            overflow: hidden;
-            z-index: 1;
-        }
-        #btn-store::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(to right, #9000FF, #FB00FF, #002AFF, #00BBFF, #037303, #03E203, #FFFF00, #F6B132, #FF0000, #6A0202);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            z-index: -1;
-        }
-        #btn-store:hover::before {
-            opacity: 1;
-        }
-        #btn-store:hover {
-            color: #ffffff;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-        }
-
-        .instructions {
-            margin-top: 16px;
-            font-size: 13px;
-            color: #666;
-            text-align: center;
-            line-height: 1.5;
-        }
+        #analyzer-slider::-webkit-slider-thumb, #tab2-analyzer-slider::-webkit-slider-thumb, #tab3-analyzer-slider::-webkit-slider-thumb { background: #DC2626; }
+        #analyzer-slider::-moz-range-thumb, #tab2-analyzer-slider::-moz-range-thumb, #tab3-analyzer-slider::-moz-range-thumb { background: #DC2626; }
+        
+        #canvas-container { cursor: grab; outline: none; }
+        #canvas-container:active { cursor: grabbing; }
+        #canvas-container.pointer-hover { cursor: pointer !important; }
+        #canvas-container.dragging-handle { cursor: grabbing !important; }
+        
+        .tick-container { position: relative; height: 20px; width: 100%; margin-top: 2px; user-select: none; }
+        .tick-mark { position: absolute; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); cursor: pointer; color: #6B7280; font-size: 0.7rem; transition: color 0.15s; }
+        .tick-mark:hover { color: #111827; font-weight: bold; }
+        .tick-line { height: 4px; width: 1px; background-color: #9CA3AF; margin: 0 auto 2px auto; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Reaction Coordinate Diagram</h2>
-    <canvas id="simCanvas" width="800" height="500"></canvas>
-    
-    <div class="controls">
-        <button id="btn-ea" class="btn">Show Ea</button>
-        <button id="btn-labels" class="btn">Hide R, TS, P</button>
-        <button id="btn-deltah" class="btn">Show ΔH</button>
+    <!-- Tabs Bar -->
+    <div id="tabs-bar" class="w-full bg-gray-900 text-white flex z-20 shrink-0 select-none">
+        <button id="tab-1-btn" class="flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-blue-600 transition-colors cursor-pointer border-r border-gray-800">UNDERSTANDING POLARIMETRY</button>
+        <button id="tab-2-btn" class="flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer border-r border-gray-800">DETERMINE SPECIFIC ROTATION OF UNKNOWN</button>
+        <button id="tab-3-btn" class="flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer">CALCULATE %EE FROM OBSERVED ROTATION</button>
+    </div>
+
+    <!-- Top Panel Container -->
+    <div id="top-panel" class="w-full bg-white p-4 z-10 shrink-0 select-none overflow-y-auto border-b border-gray-100">
         
-        <button id="btn-endo" class="btn">Endothermic</button>
-        <button id="btn-store" class="btn">Store Curve</button>
-        <button id="btn-exo" class="btn">Exothermic</button>
+        <!-- Tab 1 Top Content -->
+        <div id="tab1-top-content" class="max-w-[1200px] mx-auto flex flex-col gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-center h-8">
+                        <span class="font-semibold text-green-600">Specific Rotation [&alpha;]</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="spec-input" step="1" value="0" class="w-24 px-2 py-0.5 text-right font-semibold text-green-600 border border-gray-300 rounded focus:outline-none focus:border-green-500 shadow-sm text-sm">
+                            <span class="font-semibold text-green-600">&deg;</span>
+                        </div>
+                    </div>
+                    <input type="range" id="spec-slider" min="-200" max="200" value="0" step="1">
+                    <div class="tick-container" id="ticks-spec"></div>
+                </div>
+
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-center h-8">
+                        <span class="font-semibold text-blue-600">Concentration (g/mL)</span>
+                        <span class="font-semibold text-blue-600" id="conc-val">1.00</span>
+                    </div>
+                    <input type="range" id="conc-slider" min="0" max="2" value="1.00" step="0.01">
+                    <div class="tick-container" id="ticks-conc"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1">
+                        <span class="font-semibold text-purple-600">Percent Composition</span>
+                        <div class="text-right font-semibold text-purple-600 text-xs leading-tight" id="mixture-val">0% (-)-Levorotatory Isomer<br>100% (+)-Dextrorotatory Isomer</div>
+                    </div>
+                    <input type="range" id="mixture-slider" min="0" max="100" value="100" step="1">
+                    <div class="tick-container" id="ticks-mixture"></div>
+                    <div class="text-xs text-purple-600 font-bold mt-1 text-center">
+                        Enantiomeric Excess (ee): <span id="ee-val">100% ee (+)</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-start">
+                        <span class="font-semibold text-red-600">Analyzer Angle (&deg;)</span>
+                        <div class="text-right font-semibold text-red-600 text-sm leading-tight">
+                            <span id="analyzer-val">0&deg;</span><br>
+                            <span class="invisible">&nbsp;</span>
+                        </div>
+                    </div>
+                    <input type="range" id="analyzer-slider" min="-360" max="360" value="0" step="1">
+                    <div class="tick-container" id="ticks-analyzer"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2 Top Content -->
+        <div id="tab2-top-content" class="hidden w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex flex-col gap-2 text-xs md:text-sm text-gray-800 shadow-sm relative">
+                <p class="font-medium leading-snug m-0">
+                    A chiral molecule was synthesized (with 100% enantiomeric excess). Using the available controls for the polarimeter, characterize the optical activity of this molecule and answer the questions below:
+                </p>
+                <div class="flex flex-wrap items-center gap-3 mt-1">
+                    <div class="font-semibold text-gray-900">1. Is this molecule dextrorotatory or levorotatory?</div>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-1 cursor-pointer font-medium">
+                            <input type="radio" name="chirality-guess" value="dex" class="cursor-pointer"> Dextrorotatory (+)
+                        </label>
+                        <label class="flex items-center gap-1 cursor-pointer font-medium">
+                            <input type="radio" name="chirality-guess" value="lev" class="cursor-pointer"> Levorotatory (-)
+                        </label>
+                        <span id="q1-feedback" class="text-base font-bold"></span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-0.5">
+                    <div class="font-semibold text-gray-900">2. What is the specific rotation, [&alpha;], of this chiral compound? (Include + or -)</div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="unknown-spec-guess" step="1" placeholder="e.g. -45" class="w-24 px-2 py-0.5 text-right font-semibold border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white shadow-sm text-sm">
+                            <span class="font-semibold">&deg;</span>
+                        </div>
+                        <span id="q2-feedback" class="font-bold text-sm"></span>
+                    </div>
+                </div>
+                <div class="mt-1 flex items-center justify-between">
+                    <button id="check-answers-btn" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors cursor-pointer text-xs uppercase tracking-wider">CHECK ANSWERS</button>
+                    <button id="start-over-btn" class="hidden px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition-colors cursor-pointer text-xs uppercase tracking-wider">START OVER</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-center h-8">
+                        <span class="font-semibold text-blue-600">Concentration (g/mL)</span>
+                        <span class="font-semibold text-blue-600" id="tab2-conc-val">1.00</span>
+                    </div>
+                    <input type="range" id="tab2-conc-slider" min="0" max="2" value="1.00" step="0.01">
+                    <div class="tick-container" id="ticks-tab2-conc"></div>
+                </div>
+
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-start">
+                        <span class="font-semibold text-red-600">Analyzer Angle (&deg;)</span>
+                        <div class="text-right font-semibold text-red-600 text-sm leading-tight">
+                            <span id="tab2-analyzer-val">0&deg;</span><br>
+                            <span class="invisible">&nbsp;</span>
+                        </div>
+                    </div>
+                    <input type="range" id="tab2-analyzer-slider" min="-360" max="360" value="0" step="1">
+                    <div class="tick-container" id="ticks-tab2-analyzer"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3 Top Content -->
+        <div id="tab3-top-content" class="hidden w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex flex-col gap-2 text-xs md:text-sm text-gray-800 shadow-sm relative">
+                <p class="font-medium leading-snug m-0">
+                    A mixture of two enantiomers was isolated from a reaction. One of the enantiomers is known to have a specific rotation of <span id="tab3-pure-spec-display" class="font-bold"></span>&deg;. With the polarimeter below and the associated controls, measure the observed rotation for a given concentration. Use this information to answer the following questions:
+                </p>
+                <div class="flex flex-wrap items-center gap-3 mt-1">
+                    <div class="font-semibold text-gray-900">1. Which isomer is present in a greater amount?</div>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-1 cursor-pointer font-medium">
+                            <input type="radio" name="tab3-chirality-guess" value="dex" class="cursor-pointer"> Dextrorotatory isomer (+)
+                        </label>
+                        <label class="flex items-center gap-1 cursor-pointer font-medium">
+                            <input type="radio" name="tab3-chirality-guess" value="lev" class="cursor-pointer"> Levorotatory isomer (-)
+                        </label>
+                        <span id="tab3-q1-feedback" class="text-base font-bold"></span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-0.5">
+                    <div class="font-semibold text-gray-900">2. Calculate the enantiomeric excess of this mixture:</div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="tab3-ee-guess" step="1" placeholder="e.g. 50" class="w-20 px-2 py-0.5 text-right font-semibold border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white shadow-sm text-sm">
+                            <span class="font-semibold">% ee</span>
+                        </div>
+                        <span id="tab3-q2-feedback" class="font-bold text-sm"></span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-0.5">
+                    <div class="font-semibold text-gray-900">3. Calculate the total percentage of the more abundant isomer:</div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="tab3-pct-guess" step="1" placeholder="e.g. 75" class="w-20 px-2 py-0.5 text-right font-semibold border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white shadow-sm text-sm">
+                            <span class="font-semibold">%</span>
+                        </div>
+                        <span id="tab3-q3-feedback" class="font-bold text-sm"></span>
+                    </div>
+                </div>
+                <div class="mt-1 flex items-center justify-between">
+                    <button id="tab3-check-answers-btn" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors cursor-pointer text-xs uppercase tracking-wider">CHECK ANSWERS</button>
+                    <button id="tab3-start-over-btn" class="hidden px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition-colors cursor-pointer text-xs uppercase tracking-wider">START OVER WITH NEW MIXTURE</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-center h-8">
+                        <span class="font-semibold text-blue-600">Concentration (g/mL)</span>
+                        <span class="font-semibold text-blue-600" id="tab3-conc-val">1.00</span>
+                    </div>
+                    <input type="range" id="tab3-conc-slider" min="0" max="2" value="1.00" step="0.01">
+                    <div class="tick-container" id="ticks-tab3-conc"></div>
+                </div>
+
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-sm text-gray-700 mb-1 items-start">
+                        <span class="font-semibold text-red-600">Analyzer Angle (&deg;)</span>
+                        <div class="text-right font-semibold text-red-600 text-sm leading-tight">
+                            <span id="tab3-analyzer-val">0&deg;</span><br>
+                            <span class="invisible">&nbsp;</span>
+                        </div>
+                    </div>
+                    <input type="range" id="tab3-analyzer-slider" min="-360" max="360" value="0" step="1">
+                    <div class="tick-container" id="ticks-tab3-analyzer"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <div class="instructions">
-        <b>Controls:</b> Drag circles to adjust energy levels • Hold <b>Shift</b>/<b>Ctrl</b> while clicking <i>Store Curve</i> to preserve Ea annotations • <b>Double-click</b> canvas to clear stored curves • Use <b>Arrow Keys</b> to zoom/pan axis.
+    <div id="canvas-container" class="flex-1 w-full relative touch-none bg-white">
+        
+        <!-- Controls & Lens View in Left Corner -->
+        <div class="absolute top-4 left-4 z-20 flex flex-col items-start pointer-events-none gap-2.5">
+            <!-- Light On/Off Button (Tab 1 only) -->
+            <button id="toggle-light-btn" class="pointer-events-auto bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors flex items-center gap-2 w-full justify-center">
+                <span id="light-icon">💡</span> <span id="light-text">Light: ON</span>
+            </button>
+
+            <!-- View in Analyzer Widget -->
+            <div id="lens-view-container" class="pointer-events-auto flex flex-col items-center bg-white/90 backdrop-blur p-2.5 px-3 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-200 transition-colors w-full" title="Click to view down lens">
+                <span class="text-xs font-semibold text-gray-700 mb-2">View in Analyzer</span>
+                <div class="relative w-32 h-32 bg-black rounded-full border-2 border-gray-800 shadow-[inset_0_0_16px_rgba(0,0,0,1)] flex items-center justify-center overflow-hidden transition-transform hover:scale-105">
+                    <canvas id="corner-lens-canvas" width="128" height="128" class="w-full h-full rounded-full"></canvas>
+                </div>
+            </div>
+
+            <!-- View 1 Button (Tab 1 only) -->
+            <button id="view1-btn" class="tab1-btn-group pointer-events-auto bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors flex items-center gap-2 w-full justify-center">
+                🏠 View 1
+            </button>
+
+            <!-- View 2 Button (Tab 1 only) -->
+            <button id="view2-btn" class="tab1-btn-group pointer-events-auto bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors flex items-center gap-2 w-full justify-center">
+                🔍 View 2
+            </button>
+
+            <!-- View 3 Button (Tab 1 only) -->
+            <button id="view3-btn" class="tab1-btn-group pointer-events-auto bg-white/90 backdrop-blur px-3 py-2 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors flex items-center gap-2 w-full justify-center">
+                📷 View 3
+            </button>
+        </div>
+
+        <!-- Graph Button on Right-Hand Side -->
+        <div class="absolute top-4 right-4 z-20 flex flex-col items-end pointer-events-none gap-2">
+            <button id="toggle-graph-btn" class="pointer-events-auto bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 transition-colors">
+                📊 Intensity Graph
+            </button>
+        </div>
+
+        <!-- Moveable & Resizable Graph Window (400x350px) -->
+        <div id="graph-window" class="absolute top-16 right-1 z-30 hidden bg-white rounded-xl shadow-2xl border border-gray-300 flex flex-col overflow-hidden select-none" style="width: 400px; height: 350px; resize: both;">
+            <div id="graph-header" class="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between cursor-move select-none shrink-0">
+                <span class="text-xs font-bold text-gray-700">Intensity vs. Analyzer Angle</span>
+                <button id="close-graph-btn" class="w-6 h-6 bg-white hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-700 hover:text-black font-bold text-sm shadow-sm border border-gray-200 cursor-pointer">&times;</button>
+            </div>
+            <div class="flex-1 w-full relative min-h-0">
+                <canvas id="intensity-graph-canvas" class="w-full h-full block"></canvas>
+            </div>
+            <div class="bg-gray-50 px-4 py-2 border-t border-gray-200 flex items-center justify-center gap-2 text-xs font-semibold select-none shrink-0 z-20">
+                <button id="save-curve-btn" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md shadow-sm transition-colors cursor-pointer">Save Curve</button>
+                <button id="clear-graph-btn" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md shadow-sm transition-colors cursor-pointer">Clear Graph</button>
+                <button id="retain-live-btn" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md shadow-sm transition-colors cursor-pointer">Retain Current Line</button>
+            </div>
+        </div>
+
     </div>
-</div>
 
-<script>
-const canvas = document.getElementById('simCanvas');
-const ctx = canvas.getContext('2d');
+    <!-- Bottom Panel -->
+    <div id="bottom-panel" class="w-full bg-gray-50 p-4 shrink-0 z-10 select-none border-t border-gray-200 flex flex-col md:flex-row justify-center items-center gap-6 pb-4">
+        
+        <!-- Tab 1 Bottom Content -->
+        <div id="tab1-bottom-content" class="flex flex-col md:flex-row justify-center items-center gap-6 w-full">
+            <div class="flex flex-col w-full md:w-auto min-w-[250px]">
+                <label class="text-xs font-semibold text-gray-500 mb-1 block uppercase tracking-wide">Compound:</label>
+                <select id="compound-select" class="w-full p-2 bg-white border border-gray-300 rounded-md text-sm cursor-pointer outline-none focus:border-blue-500 shadow-sm">
+                    <option value="custom">Custom...</option>
+                    <option value="12">(+)-Tartaric acid (+12&deg;)</option>
+                    <option value="53">D-Glucose (+53&deg;)</option>
+                    <option value="-92">D-Fructose (-92&deg;)</option>
+                    <option value="-32">Cholesterol (-32&deg;)</option>
+                    <option value="109">Testosterone (+109&deg;)</option>
+                    <option value="172">Progesterone (+172&deg;)</option>
+                    <option value="233">Penicillin (+233&deg;)</option>
+                    <option value="-49">Taxol A (-49&deg;)</option>
+                    <option value="0" selected>Acetic acid (0&deg;)</option>
+                </select>
+            </div>
+            
+            <div class="hidden md:block w-px h-10 bg-gray-300"></div>
 
-// Increased canvas padding to comfortably accommodate larger labels
-const margin = { top: 35, right: 35, bottom: 60, left: 75 };
-const width = canvas.width - margin.left - margin.right;
-const height = canvas.height - margin.top - margin.bottom;
+            <div class="flex flex-col items-center md:items-start w-full md:w-auto">
+                <div class="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Observed Rotation</div>
+                <div class="bg-white p-2.5 rounded-md border border-gray-200 shadow-sm flex flex-col gap-1.5 text-xs md:text-sm">
+                    <div class="grid grid-cols-9 gap-x-2 text-center font-semibold items-center">
+                        <div class="text-red-600">Observed Rotation (&alpha;)</div>
+                        <div class="text-gray-400">=</div>
+                        <div class="text-green-600">Specific Rotation [&alpha;]</div>
+                        <div class="text-gray-400">&times;</div>
+                        <div class="text-gray-700">Path Length</div>
+                        <div class="text-gray-400">&times;</div>
+                        <div class="text-blue-600">Concentration</div>
+                        <div class="text-gray-400">&times;</div>
+                        <div class="text-purple-600">Enantiomeric Excess / 100</div>
 
-// Coordinate system limits
-let xMin = -1, xMax = 11;
-let yMin = 4, yMax = 18;
+                        <div id="val-obs" class="text-red-600 font-bold mt-0.5"></div>
+                        <div class="text-gray-400 mt-0.5">=</div>
+                        <div id="val-spec" class="text-green-600 font-bold mt-0.5"></div>
+                        <div class="text-gray-400 mt-0.5">&times;</div>
+                        <div id="val-path" class="text-gray-700 font-bold mt-0.5"></div>
+                        <div class="text-gray-400 mt-0.5">&times;</div>
+                        <div id="val-conc" class="text-blue-600 font-bold mt-0.5"></div>
+                        <div class="text-gray-400 mt-0.5">&times;</div>
+                        <div id="val-ee" class="text-purple-600 font-bold mt-0.5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-// Energy constants
-const ENDOTHERMIC_REACTANT_ENERGY = 10;
-const ENDOTHERMIC_PRODUCT_ENERGY = 12;
-const ENDOTHERMIC_PEAK_ENERGY = 13.55;
+        <!-- Tab 2 Bottom Content (Empty placeholder) -->
+        <div id="tab2-bottom-content" class="hidden flex justify-center items-center w-full"></div>
 
-const EXOTHERMIC_REACTANT_ENERGY = 10;
-const EXOTHERMIC_PRODUCT_ENERGY = 8;
-const EXOTHERMIC_PEAK_ENERGY = 11.4;
+        <!-- Tab 3 Bottom Content (Empty placeholder) -->
+        <div id="tab3-bottom-content" class="hidden flex justify-center items-center w-full"></div>
 
-// Initial state variables
-let reactantEnergy = 10;
-let productEnergy = 10;
-let peakY = 11.4;
-let peakX = 5;
+    </div>
 
-// Mode flags
-let endothermicMode = false;
-let exothermicMode = false;
+    <!-- Global Footer Note across all windows -->
+    <div class="w-full bg-gray-50 py-1.5 px-4 text-xs text-gray-500 border-t border-gray-200 select-none shrink-0 flex justify-between items-center">
+        <span>Assume path length in polarimeter is 1.0 dm.</span>
+        <button id="open-info-modal" class="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline bg-transparent border-none text-xs">ℹ️ About / Copyright</button>
+    </div>
 
-// Display flags
-let showEa = false;
-let showDeltaH = false;
-let labelsVisible = true;
-let shiftPressed = false;
+    <!-- Info / Copyright Modal Overlay -->
+    <div id="info-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-lg w-full overflow-hidden flex flex-col select-none">
+            <div class="bg-gray-900 text-white px-5 py-3.5 flex items-center justify-between">
+                <span class="font-bold text-sm tracking-wide">About & Copyright Information</span>
+                <button id="close-info-modal" class="w-7 h-7 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-full flex items-center justify-center font-bold text-sm cursor-pointer transition-colors">&times;</button>
+            </div>
+            <div class="p-6 flex flex-col gap-4 text-sm text-gray-700 leading-relaxed">
+                <div>
+                    <h4 class="font-bold text-gray-900 mb-1">Interactive 3D Polarimeter Simulation</h4>
+                    <p>Created by <strong>Zerubba Levi</strong> for organic chemistry education.</p>
+                </div>
+                <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs flex flex-col gap-1.5">
+                    <span class="font-bold text-gray-900">License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)</span>
+                    <p>Other educators and professors are free to use, share, and adapt this simulation for non-commercial educational purposes, provided full attribution is given and any modified versions share this same license.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-900 mb-1">Feedback & Revisions</h4>
+                    <p>Found a bug or have a suggestion for improving this simulation? Feel free to reach out with suggested revisions and feedback at <a href="mailto:zelevi@cabrillo.edu" class="text-blue-600 hover:underline font-semibold">zelevi@cabrillo.edu</a>.</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-end">
+                <button id="modal-ok-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs tracking-wider uppercase shadow transition-colors cursor-pointer">Close</button>
+            </div>
+        </div>
+    </div>
 
-// Store saved curves
-let savedCurves = [];
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
-// Drag tracking
-let draggingPoint = null;
+    <script>
+        // Modal Logic
+        const infoModal = document.getElementById('info-modal');
+        const openInfoModalBtn = document.getElementById('open-info-modal');
+        const closeInfoModalBtn = document.getElementById('close-info-modal');
+        const modalOkBtn = document.getElementById('modal-ok-btn');
 
-// Spectrum color map for ΔH
-const colorList = ["#9000FF", "#FB00FF", "#002AFF", "#00BBFF", "#037303", "#03E203", "#FFFF00", "#F6B132", "#FF0000", "#6A0202"];
-
-// Color interpolation function for Transition State point
-function getTransitionColor(px) {
-    let t = (px - 1) / (9.9 - 0.1);
-    t = Math.max(0, Math.min(1, t));
-    let r, g, b;
-    if (t <= 0.5) {
-        let t2 = t / 0.5;
-        r = Math.round((0 + t2 * 0.5) * 255);
-        g = 0;
-        b = Math.round((1 - t2 * 0.5) * 255);
-    } else {
-        let t2 = (t - 0.5) / 0.5;
-        r = Math.round((0.5 + t2 * 0.5) * 255);
-        g = 0;
-        b = Math.round((0.5 - t2 * 0.5) * 255);
-    }
-    return `rgb(${r}, ${g}, ${b})`;
-}
-
-// Map ΔH to color spectrum
-function getDeltaHColor(deltaH) {
-    const minH = -5, maxH = 5;
-    let clamped = Math.max(minH, Math.min(maxH, deltaH));
-    let norm = (clamped - minH) / (maxH - minH);
-    
-    let idx = norm * (colorList.length - 1);
-    let i1 = Math.floor(idx);
-    let i2 = Math.min(colorList.length - 1, Math.ceil(idx));
-    let f = idx - i1;
-
-    let c1 = hexToRgb(colorList[i1]);
-    let c2 = hexToRgb(colorList[i2]);
-
-    let r = Math.round(c1.r + f * (c2.r - c1.r));
-    let g = Math.round(c1.g + f * (c2.g - c1.g));
-    let b = Math.round(c1.b + f * (c2.b - c1.b));
-
-    return `rgb(${r}, ${g}, ${b})`;
-}
-
-function hexToRgb(hex) {
-    let num = parseInt(hex.replace('#', ''), 16);
-    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
-}
-
-// Convert graph coords to canvas coords
-function toCanvasX(x) {
-    return margin.left + ((x - xMin) / (xMax - xMin)) * width;
-}
-function toCanvasY(y) {
-    return margin.top + (1 - (y - yMin) / (yMax - yMin)) * height;
-}
-
-// Convert canvas coords to graph coords
-function toGraphX(cx) {
-    return xMin + ((cx - margin.left) / width) * (xMax - xMin);
-}
-function toGraphY(cy) {
-    return yMin + (1 - (cy - margin.top) / height) * (yMax - yMin);
-}
-
-// Cubic Hermite Interpolation
-function getCubicY(x, x0, y0, x1, y1) {
-    let t = (x - x0) / (x1 - x0);
-    return y0 + (y1 - y0) * (3 * t * t - 2 * t * t * t);
-}
-
-// Generate energy curve coordinates
-function computeEnergyCurve(pX, rE, pE, pkY) {
-    let points = [];
-    let numPoints = 300;
-    for (let i = 0; i <= numPoints; i++) {
-        let xVal = (i / numPoints) * 10;
-        let yVal;
-        if (xVal <= pX) {
-            yVal = getCubicY(xVal, 0, rE, pX, pkY);
-        } else {
-            yVal = getCubicY(xVal, pX, pkY, 10, pE);
-        }
-        points.push({ x: xVal, y: yVal });
-    }
-    return points;
-}
-
-// Recalculate TS peak position based on Hammond's Postulate
-function updateHammondPosition() {
-    if (endothermicMode) {
-        reactantEnergy = ENDOTHERMIC_REACTANT_ENERGY;
-    } else if (exothermicMode) {
-        reactantEnergy = EXOTHERMIC_REACTANT_ENERGY;
-    }
-
-    let deltaH = productEnergy - reactantEnergy;
-    let maxDelta = 10;
-    let deltaClamped = Math.max(-maxDelta, Math.min(maxDelta, deltaH));
-    let normDelta = deltaClamped / maxDelta;
-
-    peakX = 5 + normDelta * 4;
-    peakX = Math.max(1, Math.min(9, peakX));
-}
-
-// Main rendering function
-function draw() {
-    updateHammondPosition();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Draw Grid Lines
-    ctx.strokeStyle = "rgba(128, 128, 128, 0.3)";
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([4, 4]);
-
-    let startX = Math.floor(xMin);
-    let endX = Math.ceil(xMax);
-    for (let x = startX; x <= endX; x++) {
-        let cx = toCanvasX(x);
-        if (cx >= margin.left && cx <= margin.left + width) {
-            ctx.beginPath();
-            ctx.moveTo(cx, margin.top);
-            ctx.lineTo(cx, margin.top + height);
-            ctx.stroke();
-        }
-    }
-
-    let startY = Math.floor(yMin);
-    let endY = Math.ceil(yMax);
-    for (let y = startY; y <= endY; y++) {
-        let cy = toCanvasY(y);
-        if (cy >= margin.top && cy <= margin.top + height) {
-            ctx.beginPath();
-            ctx.moveTo(margin.left, cy);
-            ctx.lineTo(margin.left + width, cy);
-            ctx.stroke();
-        }
-    }
-
-    // 2. Draw Axes border & Axis Labels (Bumped to 19px)
-    ctx.setLineDash([]);
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(margin.left, margin.top, width, height);
-
-    ctx.fillStyle = "#000000";
-    ctx.font = "bold 19px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Reaction Coordinate", margin.left + width / 2, canvas.height - 18);
-
-    ctx.save();
-    ctx.translate(26, margin.top + height / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText("Energy", 0, 0);
-    ctx.restore();
-
-    // 3. Draw Saved Curves
-    savedCurves.forEach(item => {
-        let curvePts = computeEnergyCurve(item.peakX, item.reactantEnergy, item.productEnergy, item.peakY);
-        ctx.beginPath();
-        ctx.strokeStyle = item.color;
-        ctx.lineWidth = 2.5;
-        curvePts.forEach((pt, idx) => {
-            let cx = toCanvasX(pt.x);
-            let cy = toCanvasY(pt.y);
-            if (idx === 0) ctx.moveTo(cx, cy);
-            else ctx.lineTo(cx, cy);
+        openInfoModalBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+        closeInfoModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+        modalOkBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+        infoModal.addEventListener('click', (e) => {
+            if (e.target === infoModal) infoModal.classList.add('hidden');
         });
-        ctx.stroke();
 
-        if (item.hasEa) {
-            let xArrow = item.peakX - 0.5;
-            drawDoubleArrow(toCanvasX(xArrow), toCanvasY(item.reactantEnergy), toCanvasX(xArrow), toCanvasY(item.peakY), item.color);
-            ctx.fillStyle = item.color;
-            ctx.font = "bold 18px sans-serif";
-            ctx.textAlign = "right";
-            ctx.fillText("Ea", toCanvasX(xArrow) - 10, toCanvasY((item.reactantEnergy + item.peakY) / 2) + 6);
+        let activeTab = 0; // 0 = Understanding Polarimetry, 1 = Determine Specific Rotation of Unknown, 2 = Calculate %ee from Observed Rotation
+        let unknownTrueSpec = 0;
+        let tab3PureSpec = 120;
+        let tab3MajorIsDex = true;
+        let tab3MajorPct = 75;
+        let tab3TrueEe = 50;
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 150);
+        camera.position.set(-25, 10, -30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.enableZoom = false; 
+        controls.target.set(0, 0, -2);
+        controls.update();
+
+        // State Variables
+        let baseSpecMag = 0.0;       
+        let specificRotVal = 0.0;      
+        let concentrationVal = 1.0;   
+        let mixtureExcess = 1.0; 
+        let pathLengthVal = 1.0; 
+        let lightOn = true;
+        
+        let targetRotationAngle = 0;  
+        let analyzerAngle = 0;         
+        let globalTime = 0;
+
+        let currentCurveDrawn = false;
+        let exploredMinAngle = 0;
+        let exploredMaxAngle = 0;
+        let observedRotationReached = false;
+        let retainCurrentLineActive = false;
+        let savedCurves = [];
+        const curveColors = ['#2563EB', '#9333EA', '#16A34A'];
+
+        function resetCurrentCurveState() {
+            if (!retainCurrentLineActive) {
+                currentCurveDrawn = false;
+                observedRotationReached = false;
+                exploredMinAngle = 0;
+                exploredMaxAngle = 0;
+            } else {
+                if (!currentCurveDrawn) {
+                    currentCurveDrawn = true;
+                    exploredMinAngle = analyzerAngle;
+                    exploredMaxAngle = analyzerAngle;
+                }
+            }
         }
-    });
 
-    // 4. Draw Current Main Curve
-    let currentCurve = computeEnergyCurve(peakX, reactantEnergy, productEnergy, peakY);
-    ctx.beginPath();
-    ctx.strokeStyle = "grey";
-    ctx.lineWidth = 2.5;
-    currentCurve.forEach((pt, idx) => {
-        let cx = toCanvasX(pt.x);
-        let cy = toCanvasY(pt.y);
-        if (idx === 0) ctx.moveTo(cx, cy);
-        else ctx.lineTo(cx, cy);
-    });
-    ctx.stroke();
+        const specSlider = document.getElementById('spec-slider');
+        const specInput = document.getElementById('spec-input');
 
-    // 5. Draw Reference Lines, Handles & Labels (Bumped to 18px)
-    if (labelsVisible) {
-        ctx.strokeStyle = "grey";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-
-        // Reactant Line
-        ctx.beginPath();
-        ctx.moveTo(margin.left, toCanvasY(reactantEnergy));
-        ctx.lineTo(margin.left + width, toCanvasY(reactantEnergy));
-        ctx.stroke();
-
-        // Product Line
-        ctx.beginPath();
-        ctx.moveTo(margin.left, toCanvasY(productEnergy));
-        ctx.lineTo(margin.left + width, toCanvasY(productEnergy));
-        ctx.stroke();
-
-        // TS Line
-        ctx.beginPath();
-        ctx.moveTo(margin.left, toCanvasY(peakY));
-        ctx.lineTo(margin.left + width, toCanvasY(peakY));
-        ctx.stroke();
-
-        ctx.setLineDash([]);
-
-        // Reactant Dot & Label
-        drawPoint(toCanvasX(0), toCanvasY(reactantEnergy), "blue");
-        ctx.fillStyle = "blue";
-        ctx.font = "bold 18px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("REACTANT", toCanvasX(0), toCanvasY(reactantEnergy) - 16);
-
-        // Product Dot & Label
-        drawPoint(toCanvasX(10), toCanvasY(productEnergy), "red");
-        ctx.fillStyle = "red";
-        ctx.font = "bold 18px sans-serif";
-        ctx.fillText("PRODUCT", toCanvasX(10), toCanvasY(productEnergy) + 26);
-
-        // TS Dot & Label
-        let tsColor = getTransitionColor(peakX);
-        drawPoint(toCanvasX(peakX), toCanvasY(peakY), tsColor);
-        ctx.fillStyle = tsColor;
-        ctx.font = "bold 18px sans-serif";
-        ctx.fillText("TRANSITION STATE", toCanvasX(peakX), toCanvasY(peakY) - 16);
-    }
-
-    // 6. Draw Ea Arrow & Label (Bumped to 18px)
-    if (showEa) {
-        let xArrow = peakX - 0.5;
-        let yStart = reactantEnergy;
-        let yEnd = peakY;
-        drawDoubleArrow(toCanvasX(xArrow), toCanvasY(yStart), toCanvasX(xArrow), toCanvasY(yEnd), "green");
-        ctx.fillStyle = "green";
-        ctx.font = "bold 18px sans-serif";
-        ctx.textAlign = "right";
-        ctx.fillText("Ea", toCanvasX(xArrow) - 10, toCanvasY((yStart + yEnd) / 2) + 6);
-    }
-
-    // 7. Draw ΔH Arrow & Label (Bumped to 18px)
-    if (showDeltaH) {
-        let xDelta = peakX + 0.5;
-        let yStart = reactantEnergy;
-        let yEnd = productEnergy;
-        drawDoubleArrow(toCanvasX(xDelta), toCanvasY(yStart), toCanvasX(xDelta), toCanvasY(yEnd), "orange");
-        ctx.fillStyle = "orange";
-        ctx.font = "bold 18px sans-serif";
-        ctx.textAlign = "left";
-        ctx.fillText("ΔH", toCanvasX(xDelta) + 10, toCanvasY((yStart + yEnd) / 2) + 6);
-    }
-}
-
-function drawPoint(cx, cy, color) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.stroke();
-}
-
-function drawDoubleArrow(x1, y1, x2, y2, color) {
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 2.5;
-
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-
-    let headLen = 10;
-    // Arrow top
-    ctx.beginPath();
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - headLen / 2, y2 + (y1 > y2 ? headLen : -headLen));
-    ctx.lineTo(x2 + headLen / 2, y2 + (y1 > y2 ? headLen : -headLen));
-    ctx.closePath();
-    ctx.fill();
-
-    // Arrow bottom
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x1 - headLen / 2, y1 + (y2 > y1 ? headLen : -headLen));
-    ctx.lineTo(x1 + headLen / 2, y1 + (y2 > y1 ? headLen : -headLen));
-    ctx.closePath();
-    ctx.fill();
-}
-
-// Interaction Handlers
-function getNearestHandle(gx, gy) {
-    const thresh = 0.6;
-    let distR = Math.hypot(gx - 0, gy - reactantEnergy);
-    let distP = Math.hypot(gx - 10, gy - productEnergy);
-    let distTS = Math.hypot(gx - peakX, gy - peakY);
-
-    if (distR < thresh && distR <= distP && distR <= distTS) return 'reactant';
-    if (distP < thresh && distP <= distR && distP <= distTS) return 'product';
-    if (distTS < thresh) return 'peak';
-    return null;
-}
-
-canvas.addEventListener('mousedown', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-
-    let gx = toGraphX(cx);
-    let gy = toGraphY(cy);
-
-    draggingPoint = getNearestHandle(gx, gy);
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-
-    let gx = toGraphX(cx);
-    let gy = toGraphY(cy);
-
-    if (!draggingPoint) {
-        canvas.style.cursor = getNearestHandle(gx, gy) ? 'pointer' : 'default';
-        return;
-    }
-
-    if (endothermicMode) {
-        if (draggingPoint === 'product') {
-            productEnergy = Math.max(gy, reactantEnergy);
-            peakY = ENDOTHERMIC_PEAK_ENERGY + (productEnergy - ENDOTHERMIC_PRODUCT_ENERGY) * 1.1;
+        function updateSpecSliderUI() {
+            const roundedSpec = Math.round(specificRotVal);
+            if (roundedSpec > 200) {
+                specSlider.value = 200;
+                specSlider.style.setProperty('--thumb-offset', '8px');
+            } else if (roundedSpec < -200) {
+                specSlider.value = -200;
+                specSlider.style.setProperty('--thumb-offset', '-8px');
+            } else {
+                specSlider.value = roundedSpec;
+                specSlider.style.setProperty('--thumb-offset', '0px');
+            }
+            if (document.activeElement !== specInput) {
+                specInput.value = roundedSpec;
+            }
         }
-    } else if (exothermicMode) {
-        if (draggingPoint === 'product') {
-            productEnergy = Math.min(gy, reactantEnergy);
-            let deltaE = reactantEnergy - productEnergy;
-            let k = 0.15;
-            peakY = reactantEnergy + (EXOTHERMIC_PEAK_ENERGY - EXOTHERMIC_REACTANT_ENERGY) * Math.exp(-k * deltaE);
+
+        function updateMixtureUI(val) {
+            document.getElementById('mixture-slider').value = val;
+            mixtureExcess = (val - 50) / 50; 
+            const mixEl = document.getElementById('mixture-val');
+            const eeEl = document.getElementById('ee-val');
+            
+            const levoPct = 100 - val;
+            const dexPct = val;
+
+            if(val === 50) {
+                mixEl.innerHTML = `50% (-)-Levorotatory Isomer<br>50% (+)-Dextrorotatory Isomer`;
+                eeEl.innerText = "0% ee";
+            } else {
+                mixEl.innerHTML = `${levoPct}% (-)-Levorotatory Isomer<br>${dexPct}% (+)-Dextrorotatory Isomer`;
+                if (val < 50) {
+                    eeEl.innerText = `${levoPct - dexPct}% ee (-)`;
+                } else {
+                    eeEl.innerText = `${dexPct - levoPct}% ee (+)`;
+                }
+            }
         }
-    } else {
-        if (draggingPoint === 'reactant') {
-            reactantEnergy = gy;
-            if (reactantEnergy > peakY - 0.1) reactantEnergy = peakY - 0.1;
-        } else if (draggingPoint === 'product') {
-            productEnergy = gy;
-            if (productEnergy > peakY - 0.1) productEnergy = peakY - 0.1;
-        } else if (draggingPoint === 'peak') {
-            peakY = gy;
-            let minPeak = Math.max(reactantEnergy, productEnergy) + 0.1;
-            if (peakY < minPeak) peakY = minPeak;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+        scene.add(ambientLight);
+        
+        const floatingLabelsToFade = []; 
+
+        function createTextSprite(message, color = 'black', fontSize = 70) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(message, 512, 128);
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: true, transparent: true, opacity: 1.0 });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(14, 3.5, 1);
+            sprite.renderOrder = 999; 
+            return { sprite, canvas, ctx, texture, material: spriteMat, color };
         }
-    }
-    draw();
-});
 
-window.addEventListener('mouseup', () => { draggingPoint = null; });
+        function updateSpriteText(spriteObj, message, fontSize = 70) {
+            spriteObj.ctx.clearRect(0, 0, spriteObj.canvas.width, spriteObj.canvas.height);
+            spriteObj.ctx.fillStyle = spriteObj.color || 'black';
+            spriteObj.ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+            spriteObj.ctx.fillText(message, 512, 128);
+            spriteObj.texture.needsUpdate = true;
+        }
 
-// Key listeners for Shift detection & Zoom/Pan
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Shift' || e.key === 'Control') shiftPressed = true;
+        const bulbGroup = new THREE.Group();
+        
+        const baseGeo = new THREE.CylinderGeometry(0.8, 0.6, 1.4, 32);
+        const baseMat = new THREE.MeshStandardMaterial({color: 0x888888, metalness: 0.9, roughness: 0.4});
+        const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+        baseMesh.rotation.x = Math.PI / 2;
+        baseMesh.position.z = -2.2;
+        bulbGroup.add(baseMesh);
 
-    let yRange = yMax - yMin;
-    let zoomFactor = 0.8;
-    let panFraction = 0.1;
+        const threadMat = new THREE.MeshStandardMaterial({color: 0x999999, metalness: 0.8, roughness: 0.5});
+        for(let i = -0.4; i <= 0.4; i += 0.25) {
+            const threadGeo = new THREE.TorusGeometry(0.75 - (i * 0.05), 0.06, 16, 32);
+            const threadMesh = new THREE.Mesh(threadGeo, threadMat);
+            threadMesh.position.z = -2.2 - i;
+            bulbGroup.add(threadMesh);
+        }
 
-    if (e.key === 'ArrowRight') { // Zoom In
-        yMin += yRange * (1 - zoomFactor) / 2;
-        yMax -= yRange * (1 - zoomFactor) / 2;
-        draw();
-    } else if (e.key === 'ArrowLeft') { // Zoom Out
-        yMin -= yRange * (1 - zoomFactor) / 2;
-        yMax += yRange * (1 - zoomFactor) / 2;
-        draw();
-    } else if (e.key === 'ArrowDown') { // Translate Up
-        let shift = yRange * panFraction;
-        yMin += shift; yMax += shift;
-        draw();
-    } else if (e.key === 'ArrowUp') { // Translate Down
-        let shift = yRange * panFraction;
-        yMin -= shift; yMax -= shift;
-        draw();
-    }
-});
+        const bulbGeometry = new THREE.SphereGeometry(1.5, 32, 32);
+        const bulbMaterial = new THREE.MeshPhysicalMaterial({ 
+            color: 0x777777, transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.2, transmission: 0.6, depthWrite: false 
+        }); 
+        const bulbMesh = new THREE.Mesh(bulbGeometry, bulbMaterial);
+        bulbGroup.add(bulbMesh);
+        
+        const neckGeo = new THREE.CylinderGeometry(1.2, 0.8, 1.2, 32);
+        const neckMesh = new THREE.Mesh(neckGeo, bulbMaterial);
+        neckMesh.rotation.x = Math.PI / 2;
+        neckMesh.position.z = -1.0;
+        bulbGroup.add(neckMesh);
 
-window.addEventListener('keyup', (e) => {
-    if (e.key === 'Shift' || e.key === 'Control') shiftPressed = false;
-});
+        const coreGeo = new THREE.SphereGeometry(0.4, 32, 32);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        bulbGroup.add(coreMesh);
 
-// Clear stored curves on double click
-canvas.addEventListener('dblclick', () => {
-    savedCurves = [];
-    draw();
-});
+        const glowLayer1 = new THREE.SphereGeometry(0.8, 32, 32);
+        const mat1 = new THREE.MeshBasicMaterial({ color: 0xffea00, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+        const glowMesh1 = new THREE.Mesh(glowLayer1, mat1);
+        bulbGroup.add(glowMesh1);
 
-// Button Controls
-const btnEa = document.getElementById('btn-ea');
-const btnLabels = document.getElementById('btn-labels');
-const btnDeltaH = document.getElementById('btn-deltah');
-const btnEndo = document.getElementById('btn-endo');
-const btnExo = document.getElementById('btn-exo');
-const btnStore = document.getElementById('btn-store');
+        const glowLayer2 = new THREE.SphereGeometry(1.2, 32, 32);
+        const mat2 = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+        const glowMesh2 = new THREE.Mesh(glowLayer2, mat2);
+        bulbGroup.add(glowMesh2);
 
-btnEa.addEventListener('click', () => {
-    showEa = !showEa;
-    btnEa.textContent = showEa ? "Hide Ea" : "Show Ea";
-    btnEa.classList.toggle('active', showEa);
-    draw();
-});
+        const glowLayer3 = new THREE.SphereGeometry(1.4, 32, 32);
+        const mat3 = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false });
+        const glowMesh3 = new THREE.Mesh(glowLayer3, mat3);
+        bulbGroup.add(glowMesh3);
 
-btnLabels.addEventListener('click', () => {
-    labelsVisible = !labelsVisible;
-    btnLabels.textContent = labelsVisible ? "Hide R, TS, P" : "Show R, TS, P";
-    btnLabels.classList.toggle('off', !labelsVisible);
-    draw();
-});
+        const pointLight = new THREE.PointLight(0xffcc00, 4.0, 100);
+        bulbGroup.add(pointLight);
+        
+        bulbGroup.position.set(0, 0, -17.5);
+        scene.add(bulbGroup);
 
-btnDeltaH.addEventListener('click', () => {
-    showDeltaH = !showDeltaH;
-    btnDeltaH.textContent = showDeltaH ? "Hide ΔH" : "Show ΔH";
-    btnDeltaH.classList.toggle('active', showDeltaH);
-    draw();
-});
+        const sourceLabelObj = createTextSprite("LIGHT SOURCE", "#FF8800");
+        sourceLabelObj.sprite.position.set(0, 3.0, -17.5);
+        scene.add(sourceLabelObj.sprite);
+        floatingLabelsToFade.push(sourceLabelObj.material);
 
-btnEndo.addEventListener('click', () => {
-    endothermicMode = !endothermicMode;
-    if (endothermicMode) {
-        exothermicMode = false;
-        reactantEnergy = ENDOTHERMIC_REACTANT_ENERGY;
-        productEnergy = ENDOTHERMIC_PRODUCT_ENERGY;
-        peakY = ENDOTHERMIC_PEAK_ENERGY;
-    } else {
-        reactantEnergy = 10;
-        productEnergy = 10;
-        peakY = 11.4;
-    }
-    btnEndo.classList.toggle('active', endothermicMode);
-    btnExo.classList.remove('active');
-    draw();
-});
+        function createFilter(hasHandle = false) {
+            const group = new THREE.Group();
+            const ringGeo = new THREE.TorusGeometry(3.6, 0.4, 32, 64);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            group.add(ring);
 
-btnExo.addEventListener('click', () => {
-    exothermicMode = !exothermicMode;
-    if (exothermicMode) {
-        endothermicMode = false;
-        reactantEnergy = EXOTHERMIC_REACTANT_ENERGY;
-        productEnergy = EXOTHERMIC_PRODUCT_ENERGY;
-        peakY = EXOTHERMIC_PEAK_ENERGY;
-    } else {
-        reactantEnergy = 10;
-        productEnergy = 10;
-        peakY = 11.4;
-    }
-    btnExo.classList.toggle('active', exothermicMode);
-    btnEndo.classList.remove('active');
-    draw();
-});
+            const gridGroup = new THREE.Group();
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            for(let i = -3.2; i <= 3.2; i += 0.4) {
+                const height = 2 * Math.sqrt(Math.pow(3.5, 2) - Math.pow(i, 2));
+                if(height > 0) {
+                    const lineGeo = new THREE.CylinderGeometry(0.06, 0.06, height, 8);
+                    const line = new THREE.Mesh(lineGeo, lineMat);
+                    line.position.x = i;
+                    gridGroup.add(line);
+                }
+            }
+            
+            let handleMeshes = [];
+            if(hasHandle) {
+                const barGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.8, 16);
+                const handleMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.2, roughness: 0.5 });
+                const barMesh = new THREE.Mesh(barGeo, handleMat);
+                barMesh.position.set(0, 5.0, 0); 
+                gridGroup.add(barMesh);
+                handleMeshes.push(barMesh);
+                
+                const sphereGeo = new THREE.SphereGeometry(0.7, 32, 32); 
+                const sphereMesh = new THREE.Mesh(sphereGeo, handleMat);
+                sphereMesh.position.set(0, 6.5, 0);
+                gridGroup.add(sphereMesh);
+                handleMeshes.push(sphereMesh);
+            }
+            
+            group.add(gridGroup);
+            group.gridGroup = gridGroup;
+            group.handleMeshes = handleMeshes;
+            return group;
+        }
 
-btnStore.addEventListener('click', () => {
-    let deltaH = productEnergy - reactantEnergy;
-    let curveColor = getDeltaHColor(deltaH);
+        const polarizer = createFilter(false);
+        polarizer.position.z = -9;
+        scene.add(polarizer);
+        
+        const polarizerLabelObj = createTextSprite("POLARIZER", "black");
+        polarizerLabelObj.sprite.position.set(0, -5.5, -9); 
+        scene.add(polarizerLabelObj.sprite);
+        floatingLabelsToFade.push(polarizerLabelObj.material);
 
-    savedCurves.push({
-        reactantEnergy: reactantEnergy,
-        productEnergy: productEnergy,
-        peakY: peakY,
-        peakX: peakX,
-        color: curveColor,
-        hasEa: shiftPressed
-    });
-    draw();
-});
+        const analyzer = createFilter(true);
+        analyzer.position.z = 9;
+        scene.add(analyzer);
+        const analyzerLabelObj = createTextSprite(`ANALYZER: 0\u00B0`, "#DC2626");
+        analyzerLabelObj.sprite.position.set(0, -6.5, 9); 
+        scene.add(analyzerLabelObj.sprite); 
 
-// Initial Render
-draw();
-</script>
+        const tubeGroup = new THREE.Group();
+        scene.add(tubeGroup);
+        
+        const sampleTubeLength = 16;
+        
+        const tubeCanvas = document.createElement('canvas');
+        tubeCanvas.width = 512; tubeCanvas.height = 512;
+        const tCtx = tubeCanvas.getContext('2d');
+        
+        tCtx.fillStyle = 'rgba(210, 215, 225, 0.18)';
+        tCtx.fillRect(0, 0, 512, 512);
 
+        const reflGrad = tCtx.createLinearGradient(0, 0, 512, 0);
+        reflGrad.addColorStop(0.00, 'rgba(120, 130, 145, 0.35)');
+        reflGrad.addColorStop(0.22, 'rgba(255, 255, 255, 0.70)');
+        reflGrad.addColorStop(0.38, 'rgba(200, 215, 230, 0.08)');
+        reflGrad.addColorStop(0.68, 'rgba(150, 160, 175, 0.15)');
+        reflGrad.addColorStop(0.85, 'rgba(255, 255, 255, 0.55)');
+        reflGrad.addColorStop(1.00, 'rgba(120, 130, 145, 0.35)');
+        
+        tCtx.fillStyle = reflGrad;
+        tCtx.fillRect(0, 0, 512, 512);
+
+        const vertGrad = tCtx.createLinearGradient(0, 0, 0, 512);
+        vertGrad.addColorStop(0.0, 'rgba(0, 0, 0, 0.18)');
+        vertGrad.addColorStop(0.12, 'rgba(255, 255, 255, 0.0)');
+        vertGrad.addColorStop(0.88, 'rgba(255, 255, 255, 0.0)');
+        vertGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0.18)');
+        tCtx.fillStyle = vertGrad;
+        tCtx.globalCompositeOperation = 'source-atop';
+        tCtx.fillRect(0, 0, 512, 512);
+
+        const tubeTexture = new THREE.CanvasTexture(tubeCanvas);
+        tubeTexture.wrapS = THREE.RepeatWrapping;
+        tubeTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+        const outerTubeGeo = new THREE.CylinderGeometry(2.12, 2.12, sampleTubeLength, 32, 1, true); 
+        const glassMat = new THREE.MeshPhysicalMaterial({
+            color: 0xdde4ed, 
+            map: tubeTexture,
+            transparent: true, 
+            opacity: 0.45, 
+            roughness: 0.06, 
+            metalness: 0.1, 
+            transmission: 0.85, 
+            side: THREE.DoubleSide, 
+            depthWrite: false
+        });
+        const outerTubeMesh = new THREE.Mesh(outerTubeGeo, glassMat);
+        outerTubeMesh.rotation.x = Math.PI / 2;
+        tubeGroup.add(outerTubeMesh);
+
+        const innerTubeGeo = new THREE.CylinderGeometry(2.05, 2.05, sampleTubeLength, 32, 1, true); 
+        const liquidMat = new THREE.MeshPhysicalMaterial({
+            color: 0x93c5fd, transparent: true, opacity: 0.22, metalness: 0, roughness: 0.1, transmission: 0.6, side: THREE.DoubleSide, depthWrite: false
+        });
+        const liquidMesh = new THREE.Mesh(innerTubeGeo, liquidMat);
+        liquidMesh.rotation.x = Math.PI / 2;
+        tubeGroup.add(liquidMesh);
+
+        const sampleLabelObj = createTextSprite("SAMPLE", "#2563EB");
+        sampleLabelObj.sprite.position.set(0, 3.0, 0);
+        scene.add(sampleLabelObj.sprite);
+        floatingLabelsToFade.push(sampleLabelObj.material);
+
+        const eyepieceGroup = new THREE.Group();
+        
+        const barrelGeo = new THREE.CylinderGeometry(3.6, 3.6, 0.8, 64, 1, true);
+        const barrelMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+        const barrelMesh = new THREE.Mesh(barrelGeo, barrelMat);
+        barrelMesh.rotation.x = Math.PI / 2;
+        eyepieceGroup.add(barrelMesh);
+
+        const lensCanvas = document.createElement('canvas');
+        lensCanvas.width = 256; lensCanvas.height = 256;
+        const lCtx = lensCanvas.getContext('2d');
+        const lensTexture = new THREE.CanvasTexture(lensCanvas);
+        const lensMat = new THREE.MeshBasicMaterial({ map: lensTexture, transparent: false, depthWrite: true });
+        
+        const lensGeo = new THREE.CircleGeometry(3.6, 64);
+        const lensMesh = new THREE.Mesh(lensGeo, lensMat);
+        lensMesh.position.z = -0.4; 
+        eyepieceGroup.add(lensMesh);
+
+        eyepieceGroup.position.z = 14; 
+        scene.add(eyepieceGroup);
+
+        const cornerCanvas = document.getElementById('corner-lens-canvas');
+        const cCtx = cornerCanvas.getContext('2d');
+
+        function renderLens(ctx, width, height, intensity) {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, height);
+
+            if (intensity <= 0.0001) return;
+
+            const cx = width / 2;
+            const cy = height / 2;
+            const radius = width / 2;
+
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 0.6);
+            
+            const wVal = Math.round(255 * intensity);
+            const rVal = Math.round(255 * intensity);
+            const gVal = Math.round(215 * intensity);
+
+            grad.addColorStop(0, `rgb(${wVal}, ${wVal}, ${wVal})`);
+            grad.addColorStop(0.35, `rgb(${rVal}, ${gVal}, 0)`);
+            grad.addColorStop(1, '#000000');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function updateLensViews(intensity) {
+            renderLens(lCtx, lensCanvas.width, lensCanvas.height, intensity);
+            lensTexture.needsUpdate = true;
+
+            renderLens(cCtx, cornerCanvas.width, cornerCanvas.height, intensity);
+        }
+
+        const waveAmplitude = 1.4;
+        const planeGeo = new THREE.PlaneGeometry(waveAmplitude * 2.2, sampleTubeLength, 1, 64);
+        planeGeo.rotateX(Math.PI / 2); 
+        planeGeo.rotateZ(Math.PI / 2); 
+        const originalPlanePositions = planeGeo.attributes.position.array.slice();
+        
+        const orangeWaveMat = new THREE.MeshBasicMaterial({ color: 0xFF8800 });
+        const planeMat = new THREE.MeshBasicMaterial({ 
+            color: 0xFF8800, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false 
+        });
+        
+        const twistingPlane = new THREE.Mesh(planeGeo, planeMat);
+        scene.add(twistingPlane);
+
+        const unpolLen = 8.5; 
+        const unpolAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4];
+        const unpolPlaneMeshes = [];
+
+        for (let i = 0; i < unpolAngles.length; i++) {
+            const pGeo = new THREE.PlaneGeometry(waveAmplitude * 2.2, unpolLen, 1, 16);
+            pGeo.rotateX(Math.PI / 2);
+            pGeo.rotateZ(unpolAngles[i]);
+            const pMesh = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({
+                color: 0xFF8800, transparent: true, opacity: 0.30, side: THREE.DoubleSide, depthWrite: false
+            }));
+            pMesh.position.z = -13.25;
+            scene.add(pMesh);
+            unpolPlaneMeshes.push(pMesh);
+        }
+
+        function createDoubleEndedArrow(length, color = 0xFF8800) {
+            const group = new THREE.Group();
+            const shaftGeo = new THREE.CylinderGeometry(0.06, 0.06, length - 0.4, 8);
+            const headGeo = new THREE.ConeGeometry(0.18, 0.35, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: color });
+
+            const shaft = new THREE.Mesh(shaftGeo, mat);
+            group.add(shaft);
+
+            const topHead = new THREE.Mesh(headGeo, mat);
+            topHead.position.y = length / 2 - 0.17;
+            group.add(topHead);
+
+            const bottomHead = new THREE.Mesh(headGeo, mat);
+            bottomHead.position.y = -(length / 2 - 0.17);
+            bottomHead.rotation.x = Math.PI;
+            group.add(bottomHead);
+
+            return group;
+        }
+
+        const polarizationArrows = [];
+        const numArrows = 6;
+        for (let i = 0; i < numArrows; i++) {
+            const arrowGroup = createDoubleEndedArrow(waveAmplitude * 2.2, 0xCC5500);
+            scene.add(arrowGroup);
+            polarizationArrows.push({ group: arrowGroup });
+        }
+
+        class SineCurve extends THREE.Curve {
+            constructor(startZ, endZ, startAngle, endAngle, amplitude, time, k, omega) {
+                super();
+                this.startZ = startZ; this.endZ = endZ; this.startAngle = startAngle;
+                this.endAngle = endAngle; this.amplitude = amplitude; this.time = time;
+                this.k = k; this.omega = omega;
+            }
+            getPoint(t, optionalTarget = new THREE.Vector3()) {
+                const z = this.startZ + t * (this.endZ - this.startZ);
+                const currentAngle = this.startAngle + t * (this.endAngle - this.startAngle);
+                const phase = this.k * z - this.omega * this.time;
+                const disp = this.amplitude * Math.sin(phase);
+                const x = disp * Math.sin(currentAngle);
+                const y = disp * Math.cos(currentAngle);
+                return optionalTarget.set(x, y, z);
+            }
+        }
+
+        const waveK = 2.0; const waveOmega = 5.0; 
+        
+        const unpolMeshes = [];
+        for(let i=0; i<4; i++) {
+            const m = new THREE.Mesh(new THREE.BufferGeometry(), orangeWaveMat);
+            scene.add(m);
+            unpolMeshes.push(m);
+        }
+
+        const twistMesh = new THREE.Mesh(new THREE.BufferGeometry(), orangeWaveMat);
+        scene.add(twistMesh);
+        const transMesh = new THREE.Mesh(new THREE.BufferGeometry(), orangeWaveMat);
+        scene.add(transMesh);
+
+        function updateWaveGeometry(mesh, startZ, endZ, startAngle, endAngle, amplitude) {
+            if (Math.abs(amplitude) < 0.001) { mesh.visible = false; return; }
+            mesh.visible = true;
+            const curve = new SineCurve(startZ, endZ, startAngle, endAngle, amplitude, globalTime, waveK, waveOmega);
+            const tubeGeo = new THREE.TubeGeometry(curve, 80, 0.12, 8, false);
+            if (mesh.geometry) mesh.geometry.dispose();
+            mesh.geometry = tubeGeo;
+        }
+
+        function updateSimulationValues() {
+            let alphaObserved = 0;
+            if (activeTab === 0) {
+                const mixtureVal = parseInt(document.getElementById('mixture-slider').value);
+                const mixtureExcess = (mixtureVal - 50) / 50;
+                const effectiveSpecMag = Math.abs(specificRotVal);
+                alphaObserved = effectiveSpecMag * concentrationVal * pathLengthVal * mixtureExcess;
+                specificRotVal = effectiveSpecMag * Math.sign(mixtureExcess);
+            } else if (activeTab === 1) {
+                alphaObserved = specificRotVal * concentrationVal * pathLengthVal * 1.0;
+            } else if (activeTab === 2) {
+                const eeSigned = tab3MajorIsDex ? tab3TrueEe : -tab3TrueEe;
+                alphaObserved = Math.abs(tab3PureSpec) * concentrationVal * pathLengthVal * (eeSigned / 100);
+            }
+            targetRotationAngle = THREE.MathUtils.degToRad(alphaObserved);
+
+            if (Math.abs(analyzerAngle - alphaObserved) <= 1.5) {
+                observedRotationReached = true;
+            }
+
+            const concNorm = Math.min(1.0, concentrationVal / 2.0);
+            const r = THREE.MathUtils.lerp(0.65, 0.02, concNorm);
+            const g = THREE.MathUtils.lerp(0.82, 0.12, concNorm);
+            const b = THREE.MathUtils.lerp(1.00, 0.55, concNorm);
+            liquidMat.color.setRGB(r, g, b);
+            liquidMat.opacity = Math.min(0.85, Math.max(0.18, concentrationVal * 0.35 + 0.18));
+
+            const rad = THREE.MathUtils.degToRad(-analyzerAngle);
+            analyzer.gridGroup.rotation.z = rad; 
+            updateSpriteText(analyzerLabelObj, `ANALYZER: ${analyzerAngle}\u00B0`);
+            
+            if (activeTab === 0) {
+                const mixtureVal = parseInt(document.getElementById('mixture-slider').value);
+                const mixtureExcess = (mixtureVal - 50) / 50;
+                const eeVal = Math.abs(mixtureExcess) * 100;
+                document.getElementById('val-obs').innerHTML = `${alphaObserved > 0 ? '+' : ''}${alphaObserved.toFixed(2)}&deg;`;
+                document.getElementById('val-spec').innerHTML = `${specificRotVal > 0 ? '+' : ''}${Math.round(specificRotVal)}&deg;&middot;mL/g&middot;dm`;
+                document.getElementById('val-path').innerHTML = `${pathLengthVal.toFixed(1)} dm`;
+                document.getElementById('val-conc').innerHTML = `${concentrationVal.toFixed(2)} g/mL`;
+                document.getElementById('val-ee').innerHTML = `${eeVal.toFixed(0)}%`;
+            }
+
+            if (!graphWindow.classList.contains('hidden')) {
+                drawGraph();
+            }
+        }
+
+        const graphWindow = document.getElementById('graph-window');
+        const graphCanvas = document.getElementById('intensity-graph-canvas');
+        const gCtx = graphCanvas.getContext('2d');
+
+        function drawGraph() {
+            const width = graphCanvas.clientWidth;
+            const height = graphCanvas.clientHeight;
+            if (width === 0 || height === 0) return;
+
+            const dpr = window.devicePixelRatio || 1;
+            const targetWidth = Math.round(width * dpr);
+            const targetHeight = Math.round(height * dpr);
+
+            if (graphCanvas.width !== targetWidth || graphCanvas.height !== targetHeight) {
+                graphCanvas.width = targetWidth;
+                graphCanvas.height = targetHeight;
+            }
+
+            gCtx.save();
+            gCtx.scale(dpr, dpr);
+
+            gCtx.clearRect(0, 0, width, height);
+
+            const paddingTop = 32; 
+            const paddingBottom = 55;
+            const paddingLeft = 70; 
+            const paddingRight = 40;
+            const plotWidth = width - paddingLeft - paddingRight;
+            const plotHeight = height - paddingTop - paddingBottom;
+
+            gCtx.fillStyle = '#ffffff';
+            gCtx.fillRect(0, 0, width, height);
+
+            gCtx.strokeStyle = '#9CA3AF';
+            gCtx.lineWidth = 1.2;
+            gCtx.beginPath();
+            gCtx.moveTo(paddingLeft, paddingTop);
+            gCtx.lineTo(paddingLeft, height - paddingBottom);
+            gCtx.lineTo(width - paddingRight, height - paddingBottom);
+            gCtx.stroke();
+
+            // X-Axis Label
+            gCtx.fillStyle = '#DC2626';
+            gCtx.font = 'bold 20px Inter, sans-serif';
+            gCtx.textAlign = 'center';
+            gCtx.textBaseline = 'top';
+            gCtx.fillText('ANALYZER ANGLE (°)', paddingLeft + plotWidth / 2, height - paddingBottom + 25);
+
+            // Y-Axis Label
+            gCtx.save();
+            gCtx.translate(paddingLeft - 48, paddingTop + plotHeight / 2);
+            gCtx.rotate(-Math.PI / 2);
+            gCtx.fillStyle = '#FF8800';
+            gCtx.font = 'bold 20px Inter, sans-serif';
+            gCtx.textAlign = 'center';
+            gCtx.textBaseline = 'bottom';
+            gCtx.fillText('LIGHT INTENSITY', 0, 0);
+            gCtx.restore();
+
+            const minAngle = -360;
+            const maxAngle = 360;
+            
+            gCtx.font = '17px Inter, sans-serif';
+            gCtx.textAlign = 'center';
+            gCtx.textBaseline = 'top';
+            for (let ang = -360; ang <= 360; ang += 180) {
+                const x = paddingLeft + ((ang - minAngle) / (maxAngle - minAngle)) * plotWidth;
+                gCtx.strokeStyle = '#E5E7EB';
+                gCtx.beginPath();
+                gCtx.moveTo(x, paddingTop);
+                gCtx.lineTo(x, height - paddingBottom);
+                gCtx.stroke();
+
+                gCtx.fillStyle = '#6B7280';
+                gCtx.fillText(ang + '°', x, height - paddingBottom + 6);
+            }
+
+            gCtx.textAlign = 'right';
+            gCtx.textBaseline = 'middle';
+            for (let i = 0; i <= 4; i++) {
+                const val = i / 4;
+                const y = height - paddingBottom - val * plotHeight;
+                gCtx.strokeStyle = '#E5E7EB';
+                gCtx.beginPath();
+                gCtx.moveTo(paddingLeft, y);
+                gCtx.lineTo(width - paddingRight, y);
+                gCtx.stroke();
+
+                gCtx.fillStyle = '#6B7280';
+                gCtx.fillText(val.toFixed(2), paddingLeft - 10, y);
+            }
+
+            function renderCurve(targetAlphaRad, minAng, maxAng, strokeColor, lineWidth, isDashed = false) {
+                gCtx.strokeStyle = strokeColor;
+                gCtx.lineWidth = lineWidth;
+                if (isDashed) {
+                    gCtx.setLineDash([6, 6]);
+                } else {
+                    gCtx.setLineDash([]);
+                }
+                gCtx.beginPath();
+
+                const steps = 150;
+                const span = maxAng - minAng;
+                let first = true;
+                if (span < 1) {
+                    const ang = minAng;
+                    const angRad = THREE.MathUtils.degToRad(ang);
+                    const intensity = Math.pow(Math.cos(angRad - targetAlphaRad), 2);
+                    const x = paddingLeft + ((ang - minAngle) / (maxAngle - minAngle)) * plotWidth;
+                    const y = height - paddingBottom - intensity * plotHeight;
+                    gCtx.arc(x, y, 5, 0, Math.PI * 2);
+                    gCtx.fillStyle = strokeColor;
+                    gCtx.fill();
+                } else {
+                    for (let i = 0; i <= steps; i++) {
+                        const ang = minAng + (i / steps) * span;
+                        const angRad = THREE.MathUtils.degToRad(ang);
+                        const intensity = Math.pow(Math.cos(angRad - targetAlphaRad), 2);
+
+                        const x = paddingLeft + ((ang - minAngle) / (maxAngle - minAngle)) * plotWidth;
+                        const y = height - paddingBottom - intensity * plotHeight;
+
+                        if (first) {
+                            gCtx.moveTo(x, y);
+                            first = false;
+                        } else {
+                            gCtx.lineTo(x, y);
+                        }
+                    }
+                    gCtx.stroke();
+                }
+                gCtx.setLineDash([]);
+            }
+
+            savedCurves.forEach(curve => {
+                renderCurve(curve.alphaRad, curve.minAngle, curve.maxAngle, curve.color, 2.5, false);
+            });
+
+            if (!currentCurveDrawn) {
+                if (savedCurves.length === 0) {
+                    gCtx.fillStyle = '#9CA3AF';
+                    gCtx.font = '18px Inter, sans-serif';
+                    gCtx.textAlign = 'center';
+                    gCtx.textBaseline = 'middle';
+                    gCtx.fillText('Adjust the angle', width / 2, height / 2 - 12);
+                    gCtx.fillText('to plot intensity data...', width / 2, height / 2 + 12);
+                }
+                gCtx.restore();
+                return;
+            }
+
+            let activeAlphaObs = 0;
+            if (activeTab === 0) {
+                const mixtureVal = parseInt(document.getElementById('mixture-slider').value);
+                const mixtureExcess = (mixtureVal - 50) / 50;
+                const effectiveSpecMag = Math.abs(specificRotVal);
+                activeAlphaObs = effectiveSpecMag * concentrationVal * pathLengthVal * mixtureExcess;
+            } else if (activeTab === 1) {
+                activeAlphaObs = specificRotVal * concentrationVal * pathLengthVal * 1.0;
+            } else if (activeTab === 2) {
+                const eeSigned = tab3MajorIsDex ? tab3TrueEe : -tab3TrueEe;
+                activeAlphaObs = Math.abs(tab3PureSpec) * concentrationVal * pathLengthVal * (eeSigned / 100);
+            }
+            const alphaRad = THREE.MathUtils.degToRad(activeAlphaObs);
+
+            renderCurve(alphaRad, exploredMinAngle, exploredMaxAngle, '#FF6600', 3.5, false);
+
+            const currentAngRad = THREE.MathUtils.degToRad(analyzerAngle);
+            const currentIntensity = Math.pow(Math.cos(currentAngRad - alphaRad), 2);
+            const curX = paddingLeft + ((analyzerAngle - minAngle) / (maxAngle - minAngle)) * plotWidth;
+            const curY = height - paddingBottom - currentIntensity * plotHeight;
+
+            gCtx.fillStyle = '#DC2626';
+            gCtx.beginPath();
+            gCtx.arc(curX, curY, 6, 0, Math.PI * 2);
+            gCtx.fill();
+            gCtx.strokeStyle = '#ffffff';
+            gCtx.lineWidth = 2;
+            gCtx.stroke();
+
+            // Only display observed rotation line and text in Tab 1
+            if (activeTab === 0 && observedRotationReached) {
+                const alphaX = paddingLeft + ((activeAlphaObs - minAngle) / (maxAngle - minAngle)) * plotWidth;
+                if (alphaX >= paddingLeft && alphaX <= width - paddingRight) {
+                    gCtx.strokeStyle = '#DC2626';
+                    gCtx.lineWidth = 2;
+                    gCtx.setLineDash([4, 4]);
+                    gCtx.beginPath();
+                    gCtx.moveTo(alphaX, paddingTop);
+                    gCtx.lineTo(alphaX, height - paddingBottom);
+                    gCtx.stroke();
+                    gCtx.setLineDash([]);
+
+                    gCtx.fillStyle = '#DC2626';
+                    gCtx.font = 'bold 23px Inter, sans-serif';
+                    gCtx.textAlign = 'center';
+                    gCtx.textBaseline = 'bottom';
+                    gCtx.fillText(`Observed Rotation (\u03B1 = ${activeAlphaObs.toFixed(1)}\u00B0)`, alphaX, paddingTop - 6);
+                }
+            }
+
+            gCtx.restore();
+        }
+
+        const resizeObserver = new ResizeObserver(() => {
+            if (!graphWindow.classList.contains('hidden')) {
+                drawGraph();
+            }
+        });
+        resizeObserver.observe(graphWindow);
+
+        const saveCurveBtn = document.getElementById('save-curve-btn');
+        const clearGraphBtn = document.getElementById('clear-graph-btn');
+        const retainLiveBtn = document.getElementById('retain-live-btn');
+
+        saveCurveBtn.addEventListener('click', () => {
+            if (!currentCurveDrawn) return;
+            let activeAlphaObs = 0;
+            if (activeTab === 0) {
+                const mixtureVal = parseInt(document.getElementById('mixture-slider').value);
+                const mixtureExcess = (mixtureVal - 50) / 50;
+                const effectiveSpecMag = Math.abs(specificRotVal);
+                activeAlphaObs = effectiveSpecMag * concentrationVal * pathLengthVal * mixtureExcess;
+            } else if (activeTab === 1) {
+                activeAlphaObs = specificRotVal * concentrationVal * pathLengthVal * 1.0;
+            } else if (activeTab === 2) {
+                const eeSigned = tab3MajorIsDex ? tab3TrueEe : -tab3TrueEe;
+                activeAlphaObs = Math.abs(tab3PureSpec) * concentrationVal * pathLengthVal * (eeSigned / 100);
+            }
+            const alphaRad = THREE.MathUtils.degToRad(activeAlphaObs);
+
+            const color = curveColors[savedCurves.length % curveColors.length];
+            savedCurves.push({
+                alphaRad: alphaRad,
+                minAngle: exploredMinAngle,
+                maxAngle: exploredMaxAngle,
+                color: color
+            });
+            drawGraph();
+        });
+
+        clearGraphBtn.addEventListener('click', () => {
+            savedCurves = [];
+            drawGraph();
+        });
+
+        retainLiveBtn.addEventListener('click', () => {
+            retainCurrentLineActive = !retainCurrentLineActive;
+            if (retainCurrentLineActive) {
+                retainLiveBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                retainLiveBtn.classList.add('bg-orange-600', 'text-white', 'hover:bg-orange-700');
+                if (!currentCurveDrawn) {
+                    currentCurveDrawn = true;
+                    exploredMinAngle = analyzerAngle;
+                    exploredMaxAngle = analyzerAngle;
+                }
+            } else {
+                retainLiveBtn.classList.remove('bg-orange-600', 'text-white', 'hover:bg-orange-700');
+                retainLiveBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+            }
+            drawGraph();
+        });
+
+        const toggleGraphBtn = document.getElementById('toggle-graph-btn');
+        const closeGraphBtn = document.getElementById('close-graph-btn');
+
+        toggleGraphBtn.addEventListener('click', () => {
+            if (graphWindow.classList.contains('hidden')) {
+                savedCurves = [];
+                currentCurveDrawn = false;
+                observedRotationReached = false;
+                exploredMinAngle = analyzerAngle;
+                exploredMaxAngle = analyzerAngle;
+
+                if (activeTab > 0) {
+                    graphWindow.style.top = '12px';
+                } else {
+                    graphWindow.style.top = '16px';
+                }
+                graphWindow.classList.remove('hidden');
+                drawGraph();
+            } else {
+                graphWindow.classList.add('hidden');
+            }
+        });
+
+        closeGraphBtn.addEventListener('click', () => {
+            graphWindow.classList.add('hidden');
+        });
+
+        let isDraggingGraph = false;
+        let dragStartX = 0, dragStartY = 0;
+
+        const graphHeader = document.getElementById('graph-header');
+        graphHeader.addEventListener('pointerdown', (e) => {
+            if (e.target === closeGraphBtn) return;
+            isDraggingGraph = true;
+            dragStartX = e.clientX - graphWindow.offsetLeft;
+            dragStartY = e.clientY - graphWindow.offsetTop;
+            graphWindow.setPointerCapture(e.pointerId);
+        });
+
+        graphWindow.addEventListener('pointermove', (e) => {
+            if (!isDraggingGraph) return;
+            graphWindow.style.left = (e.clientX - dragStartX) + 'px';
+            graphWindow.style.top = (e.clientY - dragStartY) + 'px';
+            graphWindow.style.right = 'auto';
+            graphWindow.style.bottom = 'auto';
+        });
+
+        graphWindow.addEventListener('pointerup', (e) => {
+            if (isDraggingGraph) {
+                isDraggingGraph = false;
+                graphWindow.releasePointerCapture(e.pointerId);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+        function createTicks(containerId, sliderId, values, min, max, labelFormat) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            values.forEach(val => {
+                const pct = ((val - min) / (max - min)) * 100;
+                const tick = document.createElement('div');
+                tick.className = 'tick-mark';
+                tick.style.left = `${pct}%`;
+                tick.innerHTML = `<div class="tick-line"></div>${labelFormat(val)}`;
+                tick.addEventListener('click', () => {
+                    document.getElementById(sliderId).value = val;
+                    document.getElementById(sliderId).dispatchEvent(new Event('input'));
+                });
+                container.appendChild(tick);
+            });
+        }
+
+        createTicks('ticks-spec', 'spec-slider', [-200, -150, -100, -50, 0, 50, 100, 150, 200], -200, 200, v => v);
+        createTicks('ticks-conc', 'conc-slider', [0, 0.5, 1.0, 1.5, 2.0], 0, 2, v => v.toFixed(1));
+        createTicks('ticks-analyzer', 'analyzer-slider', [-360, -270, -180, -90, 0, 90, 180, 270, 360], -360, 360, v => v);
+        createTicks('ticks-mixture', 'mixture-slider', [0, 25, 50, 75, 100], 0, 100, v => {
+            if (v === 0) return '100/0';
+            if (v === 25) return '75/25';
+            if (v === 50) return '50/50';
+            if (v === 75) return '25/75';
+            return '0/100';
+        });
+
+        createTicks('ticks-tab2-conc', 'tab2-conc-slider', [0, 0.5, 1.0, 1.5, 2.0], 0, 2, v => v.toFixed(1));
+        createTicks('ticks-tab2-analyzer', 'tab2-analyzer-slider', [-360, -270, -180, -90, 0, 90, 180, 270, 360], -360, 360, v => v);
+
+        createTicks('ticks-tab3-conc', 'tab3-conc-slider', [0, 0.5, 1.0, 1.5, 2.0], 0, 2, v => v.toFixed(1));
+        createTicks('ticks-tab3-analyzer', 'tab3-analyzer-slider', [-360, -270, -180, -90, 0, 90, 180, 270, 360], -360, 360, v => v);
+
+        document.getElementById('compound-select').addEventListener('change', (e) => {
+            if(e.target.value !== 'custom') {
+                const compVal = parseInt(e.target.value, 10);
+                baseSpecMag = Math.abs(compVal);
+                specificRotVal = compVal;
+                // Update mixture accordingly
+                if (compVal < 0) {
+                    updateMixtureUI(25); // default levo predominance
+                } else if (compVal > 0) {
+                    updateMixtureUI(75); // default dex predominance
+                } else {
+                    updateMixtureUI(50);
+                }
+                updateSpecSliderUI();
+                resetCurrentCurveState();
+                updateSimulationValues();
+            }
+        });
+
+        specInput.addEventListener('input', (e) => {
+            const rawVal = parseFloat(e.target.value);
+            if (isNaN(rawVal)) return;
+
+            baseSpecMag = Math.abs(rawVal);
+            const newSign = Math.sign(rawVal);
+            const currentMixVal = parseInt(document.getElementById('mixture-slider').value);
+            const currentSign = currentMixVal > 50 ? 1 : (currentMixVal < 50 ? -1 : 0);
+
+            if (newSign !== 0 && newSign !== currentSign) {
+                updateMixtureUI(100 - currentMixVal);
+            }
+            specificRotVal = rawVal;
+            updateSpecSliderUI();
+            document.getElementById('compound-select').value = 'custom';
+            resetCurrentCurveState();
+            updateSimulationValues();
+        });
+
+        specSlider.addEventListener('input', (e) => {
+            const rawVal = parseFloat(e.target.value);
+            baseSpecMag = Math.abs(rawVal);
+            const newSign = Math.sign(rawVal);
+            const currentMixVal = parseInt(document.getElementById('mixture-slider').value);
+            const currentSign = currentMixVal > 50 ? 1 : (currentMixVal < 50 ? -1 : 0);
+
+            if (newSign !== 0 && newSign !== currentSign) {
+                updateMixtureUI(100 - currentMixVal);
+            }
+            specificRotVal = rawVal;
+            specSlider.style.setProperty('--thumb-offset', '0px');
+            specInput.value = Math.round(specificRotVal);
+            document.getElementById('compound-select').value = 'custom';
+            resetCurrentCurveState();
+            updateSimulationValues();
+        });
+
+        document.getElementById('conc-slider').addEventListener('input', (e) => {
+            concentrationVal = parseFloat(e.target.value);
+            document.getElementById('conc-val').innerText = concentrationVal.toFixed(2);
+            document.getElementById('tab2-conc-slider').value = concentrationVal;
+            document.getElementById('tab2-conc-val').innerText = concentrationVal.toFixed(2);
+            document.getElementById('tab3-conc-slider').value = concentrationVal;
+            document.getElementById('tab3-conc-val').innerText = concentrationVal.toFixed(2);
+            resetCurrentCurveState();
+            updateSimulationValues();
+        });
+
+        document.getElementById('tab2-conc-slider').addEventListener('input', (e) => {
+            concentrationVal = parseFloat(e.target.value);
+            document.getElementById('tab2-conc-val').innerText = concentrationVal.toFixed(2);
+            document.getElementById('conc-slider').value = concentrationVal;
+            document.getElementById('conc-val').innerText = concentrationVal.toFixed(2);
+            document.getElementById('tab3-conc-slider').value = concentrationVal;
+            document.getElementById('tab3-conc-val').innerText = concentrationVal.toFixed(2);
+            resetCurrentCurveState();
+            updateSimulationValues();
+        });
+
+        document.getElementById('tab3-conc-slider').addEventListener('input', (e) => {
+            concentrationVal = parseFloat(e.target.value);
+            document.getElementById('tab3-conc-val').innerText = concentrationVal.toFixed(2);
+            document.getElementById('conc-slider').value = concentrationVal;
+            document.getElementById('conc-val').innerText = concentrationVal.toFixed(2);
+            document.getElementById('tab2-conc-slider').value = concentrationVal;
+            document.getElementById('tab2-conc-val').innerText = concentrationVal.toFixed(2);
+            resetCurrentCurveState();
+            updateSimulationValues();
+        });
+
+        document.getElementById('mixture-slider').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            updateMixtureUI(val);
+            const mixSign = val > 50 ? 1 : (val < 50 ? -1 : 0);
+            if (mixSign !== 0) {
+                specificRotVal = baseSpecMag * mixSign;
+            } else {
+                specificRotVal = 0;
+            }
+            updateSpecSliderUI();
+            resetCurrentCurveState();
+            updateSimulationValues();
+        });
+
+        document.getElementById('analyzer-slider').addEventListener('input', (e) => {
+            analyzerAngle = parseInt(e.target.value);
+            document.getElementById('analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            document.getElementById('tab2-analyzer-slider').value = analyzerAngle;
+            document.getElementById('tab2-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            document.getElementById('tab3-analyzer-slider').value = analyzerAngle;
+            document.getElementById('tab3-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            
+            if (!currentCurveDrawn) {
+                currentCurveDrawn = true;
+                exploredMinAngle = analyzerAngle;
+                exploredMaxAngle = analyzerAngle;
+            } else {
+                exploredMinAngle = Math.min(exploredMinAngle, analyzerAngle);
+                exploredMaxAngle = Math.max(exploredMaxAngle, analyzerAngle);
+            }
+
+            updateSimulationValues();
+        });
+
+        document.getElementById('tab2-analyzer-slider').addEventListener('input', (e) => {
+            analyzerAngle = parseInt(e.target.value);
+            document.getElementById('tab2-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            document.getElementById('analyzer-slider').value = analyzerAngle;
+            document.getElementById('analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            document.getElementById('tab3-analyzer-slider').value = analyzerAngle;
+            document.getElementById('tab3-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            
+            if (!currentCurveDrawn) {
+                currentCurveDrawn = true;
+                exploredMinAngle = analyzerAngle;
+                exploredMaxAngle = analyzerAngle;
+            } else {
+                exploredMinAngle = Math.min(exploredMinAngle, analyzerAngle);
+                exploredMaxAngle = Math.max(exploredMaxAngle, analyzerAngle);
+            }
+
+            updateSimulationValues();
+        });
+
+        document.getElementById('tab3-analyzer-slider').addEventListener('input', (e) => {
+            analyzerAngle = parseInt(e.target.value);
+            document.getElementById('tab3-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            document.getElementById('analyzer-slider').value = analyzerAngle;
+            document.getElementById('analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            document.getElementById('tab2-analyzer-slider').value = analyzerAngle;
+            document.getElementById('tab2-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+            
+            if (!currentCurveDrawn) {
+                currentCurveDrawn = true;
+                exploredMinAngle = analyzerAngle;
+                exploredMaxAngle = analyzerAngle;
+            } else {
+                exploredMinAngle = Math.min(exploredMinAngle, analyzerAngle);
+                exploredMaxAngle = Math.max(exploredMaxAngle, analyzerAngle);
+            }
+
+            updateSimulationValues();
+        });
+
+        const toggleLightBtn = document.getElementById('toggle-light-btn');
+        const lightText = document.getElementById('light-text');
+        const lightIcon = document.getElementById('light-icon');
+
+        toggleLightBtn.addEventListener('click', () => {
+            lightOn = !lightOn;
+            lightText.innerText = lightOn ? "Light: ON" : "Light: OFF";
+            lightIcon.innerText = lightOn ? "💡" : "🔌";
+            
+            pointLight.intensity = lightOn ? 4.0 : 0.0;
+            coreMesh.visible = lightOn;
+            glowMesh1.visible = lightOn;
+            glowMesh2.visible = lightOn;
+            glowMesh3.visible = lightOn;
+        });
+
+        // Camera Views
+        const setView1 = () => {
+            sourceLabelObj.sprite.visible = true;
+            gsap.to(camera.position, { x: -25, y: 10, z: -30, duration: 1.5, ease: "power2.inOut", onUpdate: () => controls.update() });
+            gsap.to(controls.target, { x: 0, y: 0, z: -2, duration: 1.5, ease: "power2.inOut" });
+        };
+        const view1Btn = document.getElementById('view1-btn');
+        if(view1Btn) view1Btn.addEventListener('click', setView1);
+
+        const setView2 = () => {
+            sourceLabelObj.sprite.visible = false; 
+            gsap.to(camera.position, { x: -13.8, y: 0.2, z: -20.4, duration: 1.5, ease: "power2.inOut", onUpdate: () => controls.update() });
+            gsap.to(controls.target, { x: 2.4, y: -1.5, z: -2.1, duration: 1.5, ease: "power2.inOut" });
+        };
+        const view2Btn = document.getElementById('view2-btn');
+        if(view2Btn) view2Btn.addEventListener('click', setView2);
+
+        const setView3 = () => {
+            sourceLabelObj.sprite.visible = true;
+            gsap.to(camera.position, { x: -23.6, y: 11.8, z: 25.4, duration: 1.5, ease: "power2.inOut", onUpdate: () => controls.update() });
+            gsap.to(controls.target, { x: 6.8, y: -1.4, z: 5.1, duration: 1.5, ease: "power2.inOut" });
+        };
+        const view3Btn = document.getElementById('view3-btn');
+        if(view3Btn) view3Btn.addEventListener('click', setView3);
+
+        const alignCamera = () => {
+            gsap.to(camera.position, { x: 0, y: 0, z: 45, duration: 1.5, ease: "power2.inOut", onUpdate: () => controls.update() });
+            gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 1.5, ease: "power2.inOut" });
+        };
+        document.getElementById('lens-view-container').addEventListener('click', alignCamera);
+
+        // Tab Switching Logic
+        const tab1Btn = document.getElementById('tab-1-btn');
+        const tab2Btn = document.getElementById('tab-2-btn');
+        const tab3Btn = document.getElementById('tab-3-btn');
+        const tab1Top = document.getElementById('tab1-top-content');
+        const tab2Top = document.getElementById('tab2-top-content');
+        const tab3Top = document.getElementById('tab3-top-content');
+        const tab1Bottom = document.getElementById('tab1-bottom-content');
+        const tab2Bottom = document.getElementById('tab2-bottom-content');
+        const tab3Bottom = document.getElementById('tab3-bottom-content');
+        const tab1BtnGroups = document.querySelectorAll('.tab1-btn-group');
+        const lightBtn = document.getElementById('toggle-light-btn');
+
+        function generateNewUnknown() {
+            let sign = Math.random() < 0.5 ? 1 : -1;
+            let mag = Math.floor(Math.random() * (200 - 30 + 1)) + 30;
+            unknownTrueSpec = sign * mag;
+            specificRotVal = unknownTrueSpec;
+            concentrationVal = 1.00;
+            pathLengthVal = 1.0;
+            mixtureExcess = 1.0;
+
+            document.getElementById('unknown-spec-guess').value = '';
+            document.querySelectorAll('input[name="chirality-guess"]').forEach(r => r.checked = false);
+            document.getElementById('q1-feedback').innerHTML = '';
+            document.getElementById('q2-feedback').innerHTML = '';
+            document.getElementById('start-over-btn').classList.add('hidden');
+            
+            resetCurrentCurveState();
+            updateSimulationValues();
+        }
+
+        function generateNewTab3Mixture() {
+            let sign = Math.random() < 0.5 ? 1 : -1;
+            let mag = Math.floor(Math.random() * (200 - 30 + 1)) + 30;
+            tab3PureSpec = sign * mag;
+            tab3MajorIsDex = Math.random() < 0.5;
+            tab3MajorPct = Math.floor(Math.random() * (90 - 60 + 1)) + 60;
+            tab3TrueEe = 2 * tab3MajorPct - 100;
+
+            document.getElementById('tab3-pure-spec-display').innerText = (tab3PureSpec > 0 ? '+' : '') + tab3PureSpec;
+            document.querySelectorAll('input[name="tab3-chirality-guess"]').forEach(r => r.checked = false);
+            document.getElementById('tab3-ee-guess').value = '';
+            document.getElementById('tab3-pct-guess').value = '';
+            document.getElementById('tab3-q1-feedback').innerHTML = '';
+            document.getElementById('tab3-q2-feedback').innerHTML = '';
+            document.getElementById('tab3-q3-feedback').innerHTML = '';
+            document.getElementById('tab3-start-over-btn').classList.add('hidden');
+
+            concentrationVal = 1.00;
+            document.getElementById('tab3-conc-slider').value = 1.00;
+            document.getElementById('tab3-conc-val').innerText = '1.00';
+            document.getElementById('tab2-conc-slider').value = 1.00;
+            document.getElementById('tab2-conc-val').innerText = '1.00';
+            document.getElementById('conc-slider').value = 1.00;
+            document.getElementById('conc-val').innerText = '1.00';
+
+            analyzerAngle = 0;
+            document.getElementById('analyzer-slider').value = 0;
+            document.getElementById('analyzer-val').innerHTML = '0&deg;';
+            document.getElementById('tab2-analyzer-slider').value = 0;
+            document.getElementById('tab2-analyzer-val').innerHTML = '0&deg;';
+            document.getElementById('tab3-analyzer-slider').value = 0;
+            document.getElementById('tab3-analyzer-val').innerHTML = '0&deg;';
+
+            resetCurrentCurveState();
+            updateSimulationValues();
+        }
+
+        function switchTab(index) {
+            activeTab = index;
+            savedCurves = []; 
+            graphWindow.classList.add('hidden'); 
+            
+            tab1Btn.className = "flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer border-r border-gray-800";
+            tab2Btn.className = "flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer border-r border-gray-800";
+            tab3Btn.className = "flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer";
+
+            tab1Top.classList.add('hidden');
+            tab2Top.classList.add('hidden');
+            tab3Top.classList.add('hidden');
+            tab1Bottom.classList.add('hidden');
+            tab2Bottom.classList.add('hidden');
+            tab3Bottom.classList.add('hidden');
+
+            if (index === 0) {
+                tab1Btn.className = "flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-blue-600 transition-colors cursor-pointer border-r border-gray-800";
+                tab1Top.classList.remove('hidden');
+                tab1Bottom.classList.remove('hidden');
+                lightBtn.classList.remove('hidden');
+                tab1BtnGroups.forEach(el => el.classList.remove('hidden'));
+                setView1();
+            } else if (index === 1) {
+                tab2Btn.className = "flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-blue-600 transition-colors cursor-pointer border-r border-gray-800";
+                tab2Top.classList.remove('hidden');
+                tab2Bottom.classList.remove('hidden');
+                lightBtn.classList.add('hidden');
+                tab1BtnGroups.forEach(el => el.classList.add('hidden'));
+                generateNewUnknown();
+                setView3(); 
+            } else {
+                tab3Btn.className = "flex-1 py-3 px-3 text-center text-[11px] font-bold tracking-wider bg-blue-600 transition-colors cursor-pointer";
+                tab3Top.classList.remove('hidden');
+                tab3Bottom.classList.remove('hidden');
+                lightBtn.classList.add('hidden');
+                tab1BtnGroups.forEach(el => el.classList.add('hidden'));
+                generateNewTab3Mixture();
+                setView3();
+            }
+            updateSimulationValues();
+        }
+
+        tab1Btn.addEventListener('click', () => switchTab(0));
+        tab2Btn.addEventListener('click', () => switchTab(1));
+        tab3Btn.addEventListener('click', () => switchTab(2));
+
+        // Clear feedback error codes dynamically as student edits their answers
+        document.querySelectorAll('input[name="chirality-guess"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.getElementById('q1-feedback').innerHTML = '';
+            });
+        });
+        document.getElementById('unknown-spec-guess').addEventListener('input', () => {
+            document.getElementById('q2-feedback').innerHTML = '';
+        });
+
+        document.querySelectorAll('input[name="tab3-chirality-guess"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.getElementById('tab3-q1-feedback').innerHTML = '';
+            });
+        });
+        document.getElementById('tab3-ee-guess').addEventListener('input', () => {
+            document.getElementById('tab3-q2-feedback').innerHTML = '';
+        });
+        document.getElementById('tab3-pct-guess').addEventListener('input', () => {
+            document.getElementById('tab3-q3-feedback').innerHTML = '';
+        });
+
+        // Tab 2 Check Answers Logic
+        document.getElementById('check-answers-btn').addEventListener('click', () => {
+            const selectedRadio = document.querySelector('input[name="chirality-guess"]:checked');
+            const guessVal = parseFloat(document.getElementById('unknown-spec-guess').value);
+            const q1Feedback = document.getElementById('q1-feedback');
+            const q2Feedback = document.getElementById('q2-feedback');
+            const startOverBtn = document.getElementById('start-over-btn');
+
+            if (!selectedRadio) {
+                alert("Please select whether the molecule is dextrorotatory or levorotatory.");
+                return;
+            }
+            if (isNaN(guessVal)) {
+                alert("Please enter a numerical value for the specific rotation.");
+                return;
+            }
+
+            const isDexTrue = unknownTrueSpec > 0;
+            const userGuessedDex = selectedRadio.value === 'dex';
+            if (userGuessedDex === isDexTrue) {
+                q1Feedback.innerHTML = '<span class="text-green-600 font-bold">✅</span>';
+            } else {
+                q1Feedback.innerHTML = '<span class="text-red-600 font-bold">❌</span>';
+            }
+
+            const q2Correct = Math.abs(guessVal - unknownTrueSpec) <= 5;
+            if (q2Correct) {
+                q2Feedback.innerHTML = '<span class="text-green-600 font-bold">Correct. Well done!</span>';
+                startOverBtn.classList.remove('hidden');
+            } else {
+                q2Feedback.innerHTML = '<span class="text-red-600 font-bold">Incorrect. Try again.</span>';
+                startOverBtn.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('start-over-btn').addEventListener('click', () => {
+            generateNewUnknown();
+            setView3();
+        });
+
+        // Tab 3 Check Answers Logic
+        document.getElementById('tab3-check-answers-btn').addEventListener('click', () => {
+            const selectedRadio = document.querySelector('input[name="tab3-chirality-guess"]:checked');
+            const guessEe = parseFloat(document.getElementById('tab3-ee-guess').value);
+            const guessPct = parseFloat(document.getElementById('tab3-pct-guess').value);
+            const q1Feedback = document.getElementById('tab3-q1-feedback');
+            const q2Feedback = document.getElementById('tab3-q2-feedback');
+            const q3Feedback = document.getElementById('tab3-q3-feedback');
+            const startOverBtn = document.getElementById('tab3-start-over-btn');
+
+            if (!selectedRadio) {
+                alert("Please select whether the dextrorotatory or levorotatory isomer is present in greater amount.");
+                return;
+            }
+            if (isNaN(guessEe) || isNaN(guessPct)) {
+                alert("Please enter numerical values for both enantiomeric excess and total percentage.");
+                return;
+            }
+
+            const userGuessedDex = selectedRadio.value === 'dex';
+            if (userGuessedDex === tab3MajorIsDex) {
+                q1Feedback.innerHTML = '<span class="text-green-600 font-bold">✅</span>';
+            } else {
+                q1Feedback.innerHTML = '<span class="text-red-600 font-bold">❌</span>';
+            }
+
+            const q2Correct = Math.abs(guessEe - tab3TrueEe) <= 5;
+            if (q2Correct) {
+                q2Feedback.innerHTML = '<span class="text-green-600 font-bold">Correct. Well done!</span>';
+            } else {
+                q2Feedback.innerHTML = '<span class="text-red-600 font-bold">Incorrect. Try again.</span>';
+            }
+
+            const q3Correct = Math.abs(guessPct - tab3MajorPct) <= 5;
+            if (q3Correct) {
+                q3Feedback.innerHTML = '<span class="text-green-600 font-bold">Correct. Well done!</span>';
+            } else {
+                q3Feedback.innerHTML = '<span class="text-red-600 font-bold">Incorrect. Try again.</span>';
+            }
+
+            const q1Correct = (userGuessedDex === tab3MajorIsDex);
+            if (q1Correct && q2Correct && q3Correct) {
+                startOverBtn.classList.remove('hidden');
+            } else {
+                startOverBtn.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('tab3-start-over-btn').addEventListener('click', () => {
+            generateNewTab3Mixture();
+            setView3();
+        });
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let isDraggingAnalyzer = false;
+        let lastPointerAngle = 0;
+
+        container.addEventListener('pointerdown', (e) => {
+            if(!analyzer.handleMeshes) return;
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(analyzer.handleMeshes);
+            
+            if(intersects.length > 0) {
+                isDraggingAnalyzer = true;
+                controls.enabled = false; 
+                container.classList.add('dragging-handle');
+                
+                const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -9); 
+                const intersect = new THREE.Vector3();
+                raycaster.ray.intersectPlane(dragPlane, intersect);
+                if(intersect) {
+                    lastPointerAngle = Math.atan2(intersect.y, intersect.x);
+                }
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            if(isDraggingAnalyzer) {
+                raycaster.setFromCamera(mouse, camera);
+                const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -9); 
+                const intersect = new THREE.Vector3();
+                raycaster.ray.intersectPlane(dragPlane, intersect);
+                
+                if(intersect) {
+                    let currentAngle = Math.atan2(intersect.y, intersect.x);
+                    let delta = currentAngle - lastPointerAngle;
+                    
+                    if (delta > Math.PI) delta -= Math.PI * 2;
+                    if (delta < -Math.PI) delta += Math.PI * 2;
+                    
+                    let deltaDeg = THREE.MathUtils.radToDeg(delta);
+                    analyzerAngle -= deltaDeg; 
+                    
+                    analyzerAngle = Math.max(-360, Math.min(360, analyzerAngle));
+                    analyzerAngle = Math.round(analyzerAngle);
+                    
+                    lastPointerAngle = currentAngle;
+
+                    if (!currentCurveDrawn) {
+                        currentCurveDrawn = true;
+                        exploredMinAngle = analyzerAngle;
+                        exploredMaxAngle = analyzerAngle;
+                    } else {
+                        exploredMinAngle = Math.min(exploredMinAngle, analyzerAngle);
+                        exploredMaxAngle = Math.max(exploredMaxAngle, analyzerAngle);
+                    }
+
+                    document.getElementById('analyzer-slider').value = analyzerAngle;
+                    document.getElementById('analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+                    document.getElementById('tab2-analyzer-slider').value = analyzerAngle;
+                    document.getElementById('tab2-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+                    document.getElementById('tab3-analyzer-slider').value = analyzerAngle;
+                    document.getElementById('tab3-analyzer-val').innerHTML = `${analyzerAngle}&deg;`;
+                    updateSimulationValues();
+                }
+            } else {
+                if(analyzer.handleMeshes) {
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(analyzer.handleMeshes);
+                    if(intersects.length > 0) {
+                        container.classList.add('pointer-hover');
+                    } else {
+                        container.classList.remove('pointer-hover');
+                    }
+                }
+            }
+        });
+
+        const endDrag = () => {
+            if(isDraggingAnalyzer) {
+                isDraggingAnalyzer = false;
+                controls.enabled = true; 
+                container.classList.remove('dragging-handle');
+            }
+        };
+        window.addEventListener('pointerup', endDrag);
+        window.addEventListener('pointercancel', endDrag);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            globalTime += 0.025;
+
+            sourceLabelObj.sprite.quaternion.copy(camera.quaternion);
+            polarizerLabelObj.sprite.quaternion.copy(camera.quaternion);
+            sampleLabelObj.sprite.quaternion.copy(camera.quaternion);
+            analyzerLabelObj.sprite.quaternion.copy(camera.quaternion);
+
+            const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+            const zAxis = new THREE.Vector3(0, 0, 1);
+            const dot = Math.abs(camDir.dot(zAxis));
+            
+            const targetLabelOpacity = dot > 0.98 ? 0.0 : 1.0;
+            floatingLabelsToFade.forEach(mat => {
+                mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetLabelOpacity, 0.1);
+            });
+
+            if (!lightOn) {
+                for(let i=0; i<4; i++) unpolMeshes[i].visible = false;
+                unpolPlaneMeshes.forEach(m => m.visible = false);
+                twistMesh.visible = false;
+                transMesh.visible = false;
+                polarizationArrows.forEach(item => item.group.visible = false);
+                twistingPlane.visible = false;
+                updateLensViews(0);
+                controls.update();
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const unpolAngles = [0, Math.PI/4, Math.PI/2, 3*Math.PI/4];
+            for(let i=0; i<4; i++) {
+                updateWaveGeometry(unpolMeshes[i], -17.5, -9, unpolAngles[i], unpolAngles[i], waveAmplitude);
+                unpolPlaneMeshes[i].visible = true;
+            }
+            updateWaveGeometry(twistMesh, -9, 9, 0, targetRotationAngle, waveAmplitude);
+
+            polarizationArrows.forEach((item, index) => {
+                item.group.visible = true;
+                const totalLength = 16;
+                const speed = 2.0; 
+                let z = -8 + (((globalTime * speed + index * (totalLength / polarizationArrows.length)) % totalLength) + totalLength) % totalLength;
+                item.group.position.z = z;
+                
+                const fraction = (z - (-8)) / totalLength;
+                let currentAlphaObs = 0;
+                if (activeTab === 0) {
+                    const mixtureVal = parseInt(document.getElementById('mixture-slider').value);
+                    const mixtureExcess = (mixtureVal - 50) / 50;
+                    const effectiveSpecMag = Math.abs(specificRotVal);
+                    currentAlphaObs = effectiveSpecMag * concentrationVal * pathLengthVal * mixtureExcess;
+                } else if (activeTab === 1) {
+                    currentAlphaObs = specificRotVal * concentrationVal * pathLengthVal * 1.0;
+                } else if (activeTab === 2) {
+                    const eeSigned = tab3MajorIsDex ? tab3TrueEe : -tab3TrueEe;
+                    currentAlphaObs = Math.abs(tab3PureSpec) * concentrationVal * pathLengthVal * (eeSigned / 100);
+                }
+                const currentAngle = -fraction * currentAlphaObs * (Math.PI / 180);
+                item.group.rotation.set(0, 0, currentAngle);
+            });
+
+            twistingPlane.visible = true;
+            const pos = planeGeo.attributes.position.array;
+            for(let i=0; i<pos.length; i+=3) {
+                const origY = originalPlanePositions[i+1]; 
+                const origZ = originalPlanePositions[i+2]; 
+                const t = (origZ - (-8)) / 16;
+                let currentAlphaObs = 0;
+                if (activeTab === 0) {
+                    const mixtureVal = parseInt(document.getElementById('mixture-slider').value);
+                    const mixtureExcess = (mixtureVal - 50) / 50;
+                    const effectiveSpecMag = Math.abs(specificRotVal);
+                    currentAlphaObs = effectiveSpecMag * concentrationVal * pathLengthVal * mixtureExcess;
+                } else if (activeTab === 1) {
+                    currentAlphaObs = specificRotVal * concentrationVal * pathLengthVal * 1.0;
+                } else if (activeTab === 2) {
+                    const eeSigned = tab3MajorIsDex ? tab3TrueEe : -tab3TrueEe;
+                    currentAlphaObs = Math.abs(tab3PureSpec) * concentrationVal * pathLengthVal * (eeSigned / 100);
+                }
+                const angle = -t * currentAlphaObs * (Math.PI / 180);
+                pos[i] = -origY * Math.sin(angle);     
+                pos[i+1] = origY * Math.cos(angle);    
+            }
+            planeGeo.attributes.position.needsUpdate = true;
+
+            const analyzerRad = THREE.MathUtils.degToRad(analyzerAngle);
+            const angleDiff = targetRotationAngle - analyzerRad;
+            const transmittedAmplitude = waveAmplitude * Math.cos(angleDiff);
+            
+            updateWaveGeometry(transMesh, 9, 12.5, analyzerRad, analyzerRad, Math.abs(transmittedAmplitude));
+
+            const intensity = Math.pow(Math.cos(angleDiff), 2);
+            updateLensViews(intensity);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        updateSimulationValues();
+        animate();
+    </script>
 </body>
 </html>
